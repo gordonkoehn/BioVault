@@ -6,7 +6,6 @@ import LoginButton from "@/components/LoginButton";
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [proofGenerated, setProofGenerated] = useState(false);
-  const [proofVerified, setProofVerified] = useState(false);
 
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-white px-4">
@@ -48,7 +47,7 @@ export default function Home() {
               <div className="text-green-600 font-medium mb-2">Proof verified successfully!</div>
               <button
                 className="w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition mb-2"
-                onClick={() => setProofVerified(true)}
+                onClick={() => {}}
               >
                 Ask AI Agent
               </button>
