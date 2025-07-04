@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import LoginButton from "@/components/LoginButton";
 
 
 export default function Home() {
@@ -13,7 +14,7 @@ export default function Home() {
         <div className="rounded-2xl shadow-lg border bg-white px-8 py-10 flex flex-col items-center">
           <h1 className="text-4xl font-extrabold mb-3 tracking-tight text-gray-900">BioVault</h1>
           <p className="text-gray-600 mb-6 text-center text-lg">Upload biometric data and generate ZK proofs for private identity and insurance claims</p>
-          <button className="w-full py-3 rounded-lg border border-gray-300 text-lg font-semibold bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black transition mb-2">Log in with Wallet</button>
+          <LoginButton />
         </div>
        
         {/* Upload Section */}
