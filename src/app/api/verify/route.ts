@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { countries, Country3LetterCode, SelfAppDisclosureConfig } from "@selfxyz/common";
+import { SelfAppDisclosureConfig } from "@selfxyz/common";
 import {
   countryCodes,
   SelfBackendVerifier,
