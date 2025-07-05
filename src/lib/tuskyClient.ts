@@ -5,6 +5,16 @@ export interface CreateVaultResponse {
   success: boolean;
   vaultId?: string;
   vaultName?: string;
+  message?: string;
+  error?: string;
+  details?: string;
+}
+
+export interface FindVaultResponse {
+  success: boolean;
+  found: boolean;
+  vaultId?: string;
+  vaultName?: string;
   error?: string;
   details?: string;
 }
@@ -24,7 +34,33 @@ export interface GetFileResponse {
 }
 
 /**
- * Create a vault for the user
+ * Find an existing vault by name
+ */
+export const findVault = async (vaultName: string): Promise<FindVaultResponse> => {
+  try {
+    const response = await fetch('/api/vault/find', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ vaultName }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error finding vault:', error);
+    return {
+      success: false,
+      found: false,
+      error: 'Network error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+/**
+ * Create a vault for the user using their identifier
  */
 export const createVault = async (userIdentifier: string): Promise<CreateVaultResponse> => {
   try {
