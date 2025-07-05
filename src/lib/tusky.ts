@@ -1,5 +1,5 @@
 import { getUserVaultId } from "./vault";
-import { uploadFile as apiUploadFile, uploadFileObject as apiUploadFileObject, getFile as apiGetFile } from "./tuskyClient";
+import { uploadFile as apiUploadFile, uploadFileObject as apiUploadFileObject, getFile as apiGetFile, listFiles as apiListFiles } from "./tuskyClient";
 
 // Keep track of uploaded file IDs for this session
 const fileIds: string[] = [];
@@ -64,6 +64,29 @@ const readFile = async () => {
 }
 
 /**
+ * List all files in the user's vault
+ */
+const listFiles = async () => {
+    const vaultId = getUserVaultId();
+    if (!vaultId) {
+        throw new Error('No vault found. Please login first.');
+    }
+    
+    const response = await apiListFiles(vaultId);
+    
+    if (response.success && response.items) {
+        console.log('\n=== Files in vault ===');
+        console.log(`Found ${response.items.length} files:`);
+        response.items.forEach((file, index) => {
+            console.log(`${index + 1}. ${file.name} (ID: ${file.id}, Size: ${file.size} bytes)`);
+        });
+        return response.items;
+    } else {
+        throw new Error(response.error || 'Failed to list files');
+    }
+}
+
+/**
  * Example usage function
  */
 const main = async () => {
@@ -84,14 +107,14 @@ const main = async () => {
 
         // Read the file
         await readFile();
-        
+
     } catch (error) {
         console.error('Error in main function:', error);
     }
 }
 
 // Export functions for use in other parts of the application
-export { uploadFile, uploadFileObject, readFile, main };
+export { uploadFile, uploadFileObject, readFile, listFiles, main };
 
 // Only run main if this file is executed directly (not imported)
 if (typeof window !== 'undefined') {

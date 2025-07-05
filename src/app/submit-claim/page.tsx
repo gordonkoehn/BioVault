@@ -94,12 +94,12 @@ export default function SubmitClaimPage() {
             <div className="text-center">
               <div className="text-6xl mb-4">✅</div>
               <div className="text-green-600 font-bold mb-4 text-lg">Claim successfully transmitted</div>
-              <div className="text-gray-500 mb-6">Your biometric data has been encrypted and a ZK proof has been generated.</div>
+              <div className="text-gray-500 mb-6">Your biometric data has been encrypted and a ZK proof has been generated. View your submitted claims in the insurance dashboard.</div>
               <a 
                 href="/insurance" 
                 className="inline-block w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition"
               >
-                View in Dashboard
+                View Insurance Dashboard
               </a>
             </div>
           ) : (
