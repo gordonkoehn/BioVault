@@ -2,35 +2,54 @@
 
 import { usePrivy } from '@privy-io/react-auth';
 import { useEffect, useState } from 'react';
-import { createVault } from '@/lib/tuskyClient';
+import { createVault, findVault } from '@/lib/tuskyClient';
 
 export default function LoginButton() {
   const { login, logout, authenticated, user, ready } = usePrivy();
   const [vaultStatus, setVaultStatus] = useState<'idle' | 'creating' | 'created' | 'error'>('idle');
   const [vaultId, setVaultId] = useState<string | null>(null);
 
-  // Create vault when user authenticates
+  // Create or find vault when user authenticates
   useEffect(() => {
-    const createUserVault = async () => {
+    const getOrCreateUserVault = async () => {
       if (authenticated && user && vaultStatus === 'idle') {
         try {
           setVaultStatus('creating');
           
-          const userAddress = user.wallet?.address || user.email?.address || 'unknown';
-          const response = await createVault(userAddress);
+          // Get user identifier - prioritize email over wallet address
+          const userIdentifier = user.email?.address || user.wallet?.address;
+          if (!userIdentifier) {
+            throw new Error('User identifier is required for vault creation');
+          }
           
-          if (response.success && response.vaultId) {
+          // First, try to find existing vault
+          const vaultName = `bv_${userIdentifier}`;
+          const findResponse = await findVault(vaultName);
+          
+          if (findResponse.success && findResponse.found && findResponse.vaultId) {
+            // Existing vault found
+            localStorage.setItem('biovault_vault_id', findResponse.vaultId);
+            setVaultId(findResponse.vaultId);
+            setVaultStatus('created');
+            console.log('Existing vault found:', findResponse.vaultId);
+            return;
+          }
+          
+          // No existing vault, create a new one
+          const createResponse = await createVault(userIdentifier);
+          
+          if (createResponse.success && createResponse.vaultId) {
             // Store vault ID for later use
-            localStorage.setItem('biovault_vault_id', response.vaultId);
-            setVaultId(response.vaultId);
+            localStorage.setItem('biovault_vault_id', createResponse.vaultId);
+            setVaultId(createResponse.vaultId);
             setVaultStatus('created');
             
-            console.log('Vault created successfully:', response);
+            console.log('New vault created successfully:', createResponse);
           } else {
-            throw new Error(response.error || 'Failed to create vault');
+            throw new Error(createResponse.error || 'Failed to create vault');
           }
         } catch (error) {
-          console.error('Failed to create vault:', error);
+          console.error('Failed to get or create vault:', error);
           setVaultStatus('error');
         }
       }
@@ -43,7 +62,7 @@ export default function LoginButton() {
         setVaultId(existingVaultId);
         setVaultStatus('created');
       } else {
-        createUserVault();
+        getOrCreateUserVault();
       }
     }
   }, [authenticated, user, vaultStatus]);
@@ -80,7 +99,7 @@ export default function LoginButton() {
           {vaultStatus === 'creating' && (
             <div className="text-blue-600 flex items-center gap-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              Creating your secure vault...
+              Setting up your secure vault...
             </div>
           )}
           {vaultStatus === 'created' && vaultId && (
@@ -90,7 +109,7 @@ export default function LoginButton() {
           )}
           {vaultStatus === 'error' && (
             <div className="text-red-600">
-              ❌ Failed to create vault
+              ❌ Failed to setup vault
             </div>
           )}
         </div>

@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
     }
 
     const client = new Tusky({ apiKey: APIKEY });
-    const vaultName = `BioVault_${userIdentifier.slice(0, 8)}`;
+    // Use identifier as the unique vault name
+    const vaultName = `bv_${userIdentifier}`;
     
     const response = await client.vault.create(vaultName, { encrypted: false });
     
