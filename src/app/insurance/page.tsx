@@ -53,6 +53,7 @@ export default function InsuranceDashboard() {
   const [eligibility, setEligibility] = useState<null | boolean>(null);
   const [loading, setLoading] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Load claims and files from both localStorage and vault
   const loadClaimsAndFiles = async () => {
@@ -108,10 +109,20 @@ export default function InsuranceDashboard() {
 
   const downloadFile = async (file: SubmittedFile) => {
     try {
-      // Create a download link for the file
-      const response = await fetch(`/api/vault/file?fileId=${file.id}`);
+      setDownloading(true);
+      
+      // Create a download link for the file using the download parameter
+      const response = await fetch(`/api/vault/file?fileId=${file.id}&download=true`);
       if (response.ok) {
         const blob = await response.blob();
+        
+        // Check if we actually got file content
+        if (blob.size === 0) {
+          throw new Error('Downloaded file is empty');
+        }
+        
+        console.log(`Downloaded file: ${file.name}, size: ${blob.size} bytes`);
+        
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -121,10 +132,16 @@ export default function InsuranceDashboard() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        console.error('Failed to download file');
+        console.error('Failed to download file:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        alert(`Failed to download file: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error downloading file:', error);
+      alert(`Error downloading file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -228,10 +245,11 @@ export default function InsuranceDashboard() {
                   )}
                 </div>
                 <button
-                  className="w-full py-3 rounded-lg bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-4"
+                  className={`w-full py-3 rounded-lg bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-4 ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
                   onClick={() => downloadFile(selectedFile)}
+                  disabled={downloading}
                 >
-                  📥 Download File
+                  {downloading ? "📥 Downloading..." : "📥 Download File"}
                 </button>
                 
                 {selectedClaim && (
