@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { BiometricEncryption } from "@/lib/encryption";
 import { ZKProofSimulator } from "@/lib/zk-proofs";
+import { uploadFileObject } from "@/lib/tusky";
 
 const biometricTypes = [
   { value: "iris", label: "IRIS SCAN" },
@@ -33,6 +34,11 @@ export default function SubmitClaimPage() {
     setSuccess(false);
     try {
       if (!file) throw new Error("Please upload a biometric file.");
+      
+      // Upload file to Tusky vault first
+      const fileId = await uploadFileObject(file);
+      console.log(`File uploaded to Tusky with ID: ${fileId}`);
+      
       // Simulate file hash
       const fileHash = await BiometricEncryption.generateFileHash(file);
       // Encrypt file (simulate)
@@ -54,6 +60,7 @@ export default function SubmitClaimPage() {
           proof,
           requirements: { minAge, insuranceType },
           encrypted,
+          tuskyFileId: fileId, // Store the Tusky file ID
         };
         const prev = localStorage.getItem("claims");
         const claims = prev ? JSON.parse(prev) : [];
