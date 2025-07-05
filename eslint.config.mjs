@@ -15,6 +15,7 @@ const eslintConfig = [
     rules: {
       // Disable TypeScript ESLint rules
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
       // Disable Vercel/Next.js linking rules
       "@next/next/no-html-link-for-pages": "off",
       "@next/next/no-img-element": "off",

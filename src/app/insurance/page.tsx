@@ -49,9 +49,11 @@ function mergeClaimsWithFiles(localClaims: Claim[], vaultFiles: FileItem[]): Sub
 export default function InsuranceDashboard() {
   const [submittedFiles, setSubmittedFiles] = useState<SubmittedFile[]>([]);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
+  const [selectedFile, setSelectedFile] = useState<SubmittedFile | null>(null);
   const [eligibility, setEligibility] = useState<null | boolean>(null);
   const [loading, setLoading] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Load claims and files from both localStorage and vault
   const loadClaimsAndFiles = async () => {
@@ -89,6 +91,7 @@ export default function InsuranceDashboard() {
   const refreshClaims = () => {
     loadClaimsAndFiles();
     setSelectedClaim(null);
+    setSelectedFile(null);
     setEligibility(null);
   };
 
@@ -102,6 +105,44 @@ export default function InsuranceDashboard() {
     );
     setEligibility(!!eligibleProof.publicInputs.eligibility);
     setLoading(false);
+  };
+
+  const downloadFile = async (file: SubmittedFile) => {
+    try {
+      setDownloading(true);
+      
+      // Create a download link for the file using the download parameter
+      const response = await fetch(`/api/vault/file?fileId=${file.id}&download=true`);
+      if (response.ok) {
+        const blob = await response.blob();
+        
+        // Check if we actually got file content
+        if (blob.size === 0) {
+          throw new Error('Downloaded file is empty');
+        }
+        
+        console.log(`Downloaded file: ${file.name}, size: ${blob.size} bytes`);
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        console.error('Failed to download file:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        alert(`Failed to download file: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert(`Error downloading file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -118,7 +159,7 @@ export default function InsuranceDashboard() {
             onClick={refreshClaims}
             disabled={loadingFiles}
           >
-            {loadingFiles ? "Loading..." : "Refresh Database"}
+            {loadingFiles ? "Loading..." : "Refresh"}
           </button>
         </div>
 
@@ -137,13 +178,17 @@ export default function InsuranceDashboard() {
                   <div
                     key={file.id}
                     className={`p-4 rounded-lg cursor-pointer transition-all duration-300 border ${
-                      selectedClaim?.tuskyFileId === file.id 
+                      selectedFile?.id === file.id 
                         ? "border-black bg-gray-100" 
                         : "border-gray-200 hover:border-black hover:bg-gray-50"
                     }`}
                     onClick={() => {
+                      setSelectedFile(file);
                       if (file.claimData) {
                         setSelectedClaim(file.claimData);
+                        setEligibility(null);
+                      } else {
+                        setSelectedClaim(null);
                         setEligibility(null);
                       }
                     }}
@@ -176,71 +221,80 @@ export default function InsuranceDashboard() {
             )}
           </div>
 
-          {/* Claim Analysis */}
+          {/* File Details and Claim Analysis */}
           <div className="rounded-2xl shadow border bg-white p-6 min-h-[300px] flex flex-col justify-center">
-            {selectedClaim ? (
+            {selectedFile ? (
               <div>
-                <h3 className="text-xl font-bold mb-4 text-gray-900">Claim Analysis</h3>
+                <h3 className="text-xl font-bold mb-4 text-gray-900">File Details</h3>
                 <div className="space-y-3 mb-6">
-                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                    <span className="text-gray-700 font-semibold">Claim ID:</span> {selectedClaim.id}
+                  <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                    <span className="text-blue-700 font-semibold text-lg">📄 Name:</span> 
+                    <span className="text-blue-600 ml-2 font-bold text-lg">{selectedFile.name}</span>
                   </div>
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                    <span className="text-gray-700 font-semibold">Biometric Type:</span> {selectedClaim.biometricType.toUpperCase()}
+                    <span className="text-gray-700 font-semibold">File ID:</span> {selectedFile.id}
                   </div>
-                  {selectedClaim.tuskyFileId && (
-                    <>
-                      {(() => {
-                        // Find the corresponding file name from submittedFiles
-                        const correspondingFile = submittedFiles.find(f => f.id === selectedClaim.tuskyFileId);
-                        return correspondingFile ? (
-                          <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                            <span className="text-blue-700 font-semibold text-lg">📄 File:</span> 
-                            <span className="text-blue-600 ml-2 font-bold text-lg">{correspondingFile.name}</span>
-                            <div className="text-sm text-blue-600 mt-2">Size: {(correspondingFile.size / 1024).toFixed(2)} KB</div>
-                          </div>
-                        ) : (
-                          <div className="bg-green-50 p-3 rounded border border-green-200">
-                            <span className="text-green-700 font-semibold">Storage:</span> 
-                            <span className="text-green-600 ml-2">✓ Stored in vault</span>
-                          </div>
-                        );
-                      })()}
-                    </>
-                  )}
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                    <span className="text-gray-700 font-semibold">Requirements:</span>
-                    <div className="mt-2 space-y-1">
-                      {Object.entries(selectedClaim.requirements).map(([k, v]) => (
-                        <div key={k} className="text-sm ml-4">
-                          • {k.toUpperCase()}: {v as string}
-                        </div>
-                      ))}
+                    <span className="text-gray-700 font-semibold">Size:</span> {(selectedFile.size / 1024).toFixed(2)} KB
+                  </div>
+                  {selectedFile.claimData && (
+                    <div className="bg-green-50 p-3 rounded border border-green-200">
+                      <span className="text-green-700 font-semibold">Biometric Type:</span> 
+                      <span className="text-green-600 ml-2">{selectedFile.claimData.biometricType.toUpperCase()}</span>
                     </div>
-                  </div>
+                  )}
                 </div>
                 <button
-                  className={`w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition mb-2 ${loading ? "opacity-50" : ""}`}
-                  onClick={() => checkEligibility(selectedClaim)}
-                  disabled={loading}
+                  className={`w-full py-3 rounded-lg bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-4 ${downloading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  onClick={() => downloadFile(selectedFile)}
+                  disabled={downloading}
                 >
-                  {loading ? "Analyzing..." : "Verify Eligibility"}
+                  {downloading ? "📥 Downloading..." : "📥 Download File"}
                 </button>
-                {eligibility !== null && (
-                  <div className={`mt-4 p-4 rounded-lg border text-center font-bold text-lg ${
-                    eligibility 
-                      ? "border-green-400 bg-green-50 text-green-700" 
-                      : "border-red-400 bg-red-50 text-red-700"
-                  }`}>
-                    {eligibility ? "✓ Eligible" : "✗ Not Eligible"}
-                  </div>
+                
+                {selectedClaim && (
+                  <>
+                    <hr className="my-6 border-gray-200" />
+                    <h3 className="text-xl font-bold mb-4 text-gray-900">Claim Analysis</h3>
+                    <div className="space-y-3 mb-6">
+                      <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                        <span className="text-gray-700 font-semibold">Claim ID:</span> {selectedClaim.id}
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                        <span className="text-gray-700 font-semibold">Requirements:</span>
+                        <div className="mt-2 space-y-1">
+                          {Object.entries(selectedClaim.requirements).map(([k, v]) => (
+                            <div key={k} className="text-sm ml-4">
+                              • {k.toUpperCase()}: {v as string}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      className={`w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition mb-2 ${loading ? "opacity-50" : ""}`}
+                      onClick={() => checkEligibility(selectedClaim)}
+                      disabled={loading}
+                    >
+                      {loading ? "Analyzing..." : "Verify Eligibility"}
+                    </button>
+                    {eligibility !== null && (
+                      <div className={`mt-4 p-4 rounded-lg border text-center font-bold text-lg ${
+                        eligibility 
+                          ? "border-green-400 bg-green-50 text-green-700" 
+                          : "border-red-400 bg-red-50 text-red-700"
+                      }`}>
+                        {eligibility ? "✓ Eligible" : "✗ Not Eligible"}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
               <div className="text-center text-gray-400 h-full flex items-center justify-center min-h-[200px]">
                 <div>
                   <div className="text-6xl mb-4">🔍</div>
-                  <div className="text-lg">Select a claim to analyze</div>
+                  <div className="text-lg">Select a file to view details</div>
                   <div className="text-sm mt-2">Choose from incoming claims on the left</div>
                 </div>
               </div>
