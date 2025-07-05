@@ -1,47 +1,80 @@
-import { Tusky } from "@tusky-io/ts-sdk";
+import { getUserVaultId } from "./vault";
+import { uploadFile as apiUploadFile, getFile as apiGetFile } from "./tuskyClient";
 
-
-const APIKEY = process.env.NEXT_TUSKY_API_KEY as string;
-
-
-const VAULT_NAME = "BioVault01_"
-let vaultId = "" // needs to be created with createVault first
+// Keep track of uploaded file IDs for this session
 const fileIds: string[] = [];
 
-const createVault = async (client: Tusky) => {
-    const response = await client.vault.create(VAULT_NAME, {encrypted: false});
-    vaultId = response.id;
-    console.log(response);
-}
-
-
-const uploadFile = async(client: Tusky, filePath: string) => {
-    const fileId = await client.file.upload(vaultId, filePath);
-    fileIds.push(fileId);
-    console.log(`File uploaded successfully and got id: ${fileId}`);
-}
-
-const readFile = async(client: Tusky) => {
-    if (fileIds.length > 0) {
-        const response = await client.file.get(fileIds[0]);
-        console.log (response)
+/**
+ * Upload a file to the user's vault
+ */
+const uploadFile = async (filePath: string) => {
+    const vaultId = getUserVaultId();
+    if (!vaultId) {
+        throw new Error('No vault found. Please login first.');
+    }
+    
+    const response = await apiUploadFile(vaultId, filePath);
+    
+    if (response.success && response.fileId) {
+        fileIds.push(response.fileId);
+        console.log(`File uploaded successfully and got id: ${response.fileId}`);
+        return response.fileId;
+    } else {
+        throw new Error(response.error || 'Failed to upload file');
     }
 }
 
-const main = async () => {
-    const fileToUpload = "../images/walrus1.jpg"
-    // Create a client
-    const client = new Tusky({apiKey: APIKEY});
-
-    // Create a vault
-    await createVault(client);
-
-    // Upload a file
-    await uploadFile(client, fileToUpload);
-
-    // Read the file
-    await readFile(client);
+/**
+ * Read a file that was previously uploaded
+ */
+const readFile = async () => {
+    if (fileIds.length > 0) {
+        const response = await apiGetFile(fileIds[0]);
+        
+        if (response.success) {
+            console.log('File retrieved:', response.file);
+            return response.file;
+        } else {
+            throw new Error(response.error || 'Failed to get file');
+        }
+    } else {
+        console.log('No files have been uploaded yet.');
+        return null;
+    }
 }
 
-// Call the main function and handle errors
-main().catch(console.error);
+/**
+ * Example usage function
+ */
+const main = async () => {
+    try {
+        const fileToUpload = "../images/walrus1.jpg"
+
+        // Check if vault exists
+        const vaultId = getUserVaultId();
+        if (!vaultId) {
+            console.error('No vault found. Please login first to create a vault.');
+            return;
+        }
+
+        console.log(`Using vault: ${vaultId}`);
+
+        // Upload a file
+        await uploadFile(fileToUpload);
+
+        // Read the file
+        await readFile();
+        
+    } catch (error) {
+        console.error('Error in main function:', error);
+    }
+}
+
+// Export functions for use in other parts of the application
+export { uploadFile, readFile, main };
+
+// Only run main if this file is executed directly (not imported)
+if (typeof window !== 'undefined') {
+    // This is running in the browser, you can call main() if needed
+    // main().catch(console.error);
+}
