@@ -1,11 +1,12 @@
 import "./globals.css";
-import { Inter } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import PrivyProvider from "@/components/PrivyProvider";
 import Link from "next/link";
 import LoginButton from "@/components/LoginButton";
 import PrivyLoginRedirect from "@/components/PrivyLoginRedirect";
+import Image from "next/image";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat" });
 
 export const metadata = {
   title: "BioVault",
@@ -19,17 +20,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className + " bg-white text-black"}>
+      <body className={montserrat.className + " bg-white text-black"}>
         <PrivyProvider>
           <PrivyLoginRedirect />
-          <nav className="w-full border-b bg-white mb-8 shadow-sm">
+          <nav className="w-full bg-white/80 mb-8 font-sans backdrop-blur-sm">
             <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-              <span className="font-extrabold text-2xl tracking-tight text-black font-sans">BioVault</span>
+              <Link href="/">
+                <span className="font-extrabold text-3xl tracking-tight font-sans text-[#0A3266]">BIOVAULT</span>
+              </Link>
               <div className="flex-1 flex justify-center">
                 <div className="flex gap-10">
-                  <Link href="/submit-claim" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Submit Claim</Link>
-                  <Link href="/insurance" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Insurance</Link>
-                  <Link href="/zk-proof-demo" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">ZK Proof Demo</Link>
+                  <Link href="/submit-claim" className="text-black font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Submit Claim</Link>
+                  <Link href="/insurance" className="text-black font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Insurance</Link>
+                  <Link href="/zk-proof-demo" className="text-black font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">ZK Proof Demo</Link>
                 </div>
               </div>
               <div className="flex items-center ml-6">

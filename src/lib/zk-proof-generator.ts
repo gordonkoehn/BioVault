@@ -86,16 +86,26 @@ export class ZKProofGenerator {
       fs.writeFileSync(inputPath, JSON.stringify(input, null, 2));
 
       // Generate witness
-      execSync(
-        `node ${this.circuitPath}/biometric_hash_js/generate_witness.js ${this.wasmPath} ${inputPath} ${witnessPath}`,
-        { stdio: 'pipe' }
-      );
+      try {
+        execSync(
+          `node ${this.circuitPath}/biometric_hash_js/generate_witness.js ${this.wasmPath} ${inputPath} ${witnessPath}`,
+          { stdio: 'pipe' }
+        );
+      } catch (error) {
+        console.error('Error generating witness:', error);
+        throw new Error(`Failed to generate witness: ${error}`);
+      }
 
       // Generate proof
-      execSync(
-        `snarkjs groth16 prove ${this.zkeyPath} ${witnessPath} ${proofPath} ${publicPath}`,
-        { stdio: 'pipe' }
-      );
+      try {
+        execSync(
+          `snarkjs groth16 prove ${this.zkeyPath} ${witnessPath} ${proofPath} ${publicPath}`,
+          { stdio: 'pipe' }
+        );
+      } catch (error) {
+        console.error('Error generating proof:', error);
+        throw new Error(`Failed to generate proof: ${error}`);
+      }
 
       // Read generated files
       const proof = JSON.parse(fs.readFileSync(proofPath, 'utf8'));

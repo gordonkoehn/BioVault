@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useVerificationStore } from '../store/verificationStore';
+import { useState, useEffect } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
+import pdfjsLib from 'pdfjs-dist';
+import CryptoJS from 'crypto-js';
 
 interface ZKProof {
   pi_a: [string, string];
@@ -14,13 +16,34 @@ interface ZKPublicInputs {
   [key: string]: string;
 }
 
-interface VerificationState {
-  verifiedWallets: Set<string>;
-  markVerified: (wallet: string) => void;
-  isVerified: (wallet: string) => boolean;
+async function parsePdfToJson(file: File) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  // ...extract fields from pdf, build a JSON object...
+  return extractedJson;
+}
+
+function canonicalize(obj: any) {
+  return JSON.stringify(obj, Object.keys(obj).sort());
+}
+
+async function handleFile(file: File) {
+  const json = await parsePdfToJson(file);
+  const canonical = canonicalize(json);
+  const hash = CryptoJS.SHA256(canonical).toString(); // or use Poseidon if available
+
+  // Send hash to backend for ZK proof
+  const response = await fetch('/api/zk-proof', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hash }),
+  });
+  const result = await response.json();
+  // handle result...
 }
 
 export default function ZKProofDemo() {
+  const { user, authenticated } = usePrivy();
   const [file, setFile] = useState<File | null>(null);
   const [proof, setProof] = useState<ZKProof | null>(null);
   const [publicInputs, setPublicInputs] = useState<ZKPublicInputs | null>(null);
@@ -29,8 +52,16 @@ export default function ZKProofDemo() {
   const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const markVerified = useVerificationStore((state: VerificationState) => state.markVerified);
-  const isVerified = useVerificationStore((state: VerificationState) => state.isVerified);
+
+  // Redirect if already verified
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address) {
+      const key = `biovault_verified_${user.wallet.address}`;
+      if (typeof window !== 'undefined' && localStorage.getItem(key)) {
+        router.replace('/submit-claim');
+      }
+    }
+  }, [authenticated, user, router]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -71,7 +102,7 @@ export default function ZKProofDemo() {
         setError(result.error || 'Failed to generate proof');
       }
     } catch (err) {
-      setError('Error generating proof: ' + err.message);
+      setError('Error generating proof: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsGenerating(false);
     }
@@ -100,19 +131,28 @@ export default function ZKProofDemo() {
       if (result.success) {
         setVerificationResult(result.isValid);
         setError(null);
-        if (result.isValid) {
-          markVerified(user.wallet.address);
+        if (result.isValid && user?.wallet?.address) {
+          const key = `biovault_verified_${user.wallet.address}`;
+          localStorage.setItem(key, 'true');
           router.push('/submit-claim');
         }
       } else {
         setError(result.error || 'Failed to verify proof');
       }
     } catch (err) {
-      setError('Error verifying proof: ' + err.message);
+      setError('Error verifying proof: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsVerifying(false);
     }
   };
+
+  // Only render if not already verified
+  if (authenticated && user?.wallet?.address) {
+    const key = `biovault_verified_${user.wallet.address}`;
+    if (typeof window !== 'undefined' && localStorage.getItem(key)) {
+      return null;
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">

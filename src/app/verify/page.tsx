@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { v4 as uuidv4 } from 'uuid';
 import { countries, getUniversalLink } from "@selfxyz/core";
@@ -28,12 +28,17 @@ export default function VerifyPage() {
   const [gender, setGender] = useState('');
   const [error, setError] = useState('');
   const [qrError, setQrError] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const router = useRouter();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (authenticated && user) {
       setUserId(user.wallet?.address || '0x1234567890123456789012345678901234567890');
     }
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [authenticated, user]);
 
   if (!ready) return <div>Loading...</div>;
@@ -115,6 +120,19 @@ export default function VerifyPage() {
   }
 
   // Step 2: Show QR code for ZK proof verification
+  if (showSuccess) {
+    // Animated checkmark and success message
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <svg className="w-24 h-24 text-green-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12l3 3 5-5" />
+        </svg>
+        <h2 className="text-2xl font-bold mt-6 mb-2 text-green-600">Verification Successful!</h2>
+        <p className="text-lg text-gray-700 mb-4">Redirecting to submit claim...</p>
+      </div>
+    );
+  }
 
   try {
     const selfApp = new SelfAppBuilder({
@@ -147,7 +165,10 @@ export default function VerifyPage() {
           onSuccess={() => {
             console.log('Verification successful');
             setQrError(null);
-            router.push('/submit-claim');
+            setShowSuccess(true);
+            timeoutRef.current = setTimeout(() => {
+              router.push('/submit-claim');
+            }, 1800);
           }}
           onError={(err) => {
             console.error('Verification error:', err);

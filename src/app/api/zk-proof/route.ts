@@ -1,5 +1,9 @@
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { zkProofGenerator } from '@/lib/zk-proof-generator';
+import { parseHealthReportPdf } from '@/lib/pdfParser';
+import * as circomlib from 'circomlibjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,21 +20,31 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
     
-    // Generate ZK proof
-    const { proof, publicInputs, input } = await zkProofGenerator.generateProof(buffer);
+    // Parse PDF to JSON
+    const reportJson = await parseHealthReportPdf(buffer);
+    console.log('Parsed PDF JSON:', reportJson);
+
+    // Canonicalize and hash the JSON using Poseidon
+    const canonical = JSON.stringify(reportJson, Object.keys(reportJson).sort());
+    const poseidon = await (circomlib as any).buildPoseidon();
+    const hashBigInt = poseidon.F.toString(poseidon([BigInt('0x' + Buffer.from(canonical).toString('hex'))]));
+
+    // Pass the hash as the input to your ZK proof generator
+    const { proof, publicInputs, input } = await zkProofGenerator.generateProof(Buffer.from(hashBigInt));
     
     return NextResponse.json({
       success: true,
       proof,
       publicInputs,
       input,
+      parsed: reportJson,
       message: 'ZK proof generated successfully'
     });
 
   } catch (error) {
     console.error('Error generating ZK proof:', error);
     return NextResponse.json(
-      { error: 'Failed to generate ZK proof', details: error.message },
+      { error: 'Failed to generate ZK proof', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -59,7 +73,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error verifying ZK proof:', error);
     return NextResponse.json(
-      { error: 'Failed to verify ZK proof', details: error.message },
+      { error: 'Failed to verify ZK proof', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

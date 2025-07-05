@@ -5,14 +5,17 @@ import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 
 export default function PrivyLoginRedirect() {
-  const { authenticated, ready } = usePrivy();
+  const { authenticated, ready, user } = usePrivy();
   const router = useRouter();
 
   useEffect(() => {
-    if (ready && authenticated) {
-      router.push('/verify');
+    if (ready && authenticated && user?.wallet?.address) {
+      const key = `biovault_verified_${user.wallet.address}`;
+      if (!localStorage.getItem(key)) {
+        router.push('/verify');
+      }
     }
-  }, [ready, authenticated, router]);
+  }, [ready, authenticated, user, router]);
 
   return null;
 } 
