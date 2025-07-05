@@ -33,6 +33,19 @@ export interface GetFileResponse {
   details?: string;
 }
 
+export interface FileItem {
+  id: string;
+  name: string;
+  size: number;
+}
+
+export interface ListFilesResponse {
+  success: boolean;
+  items?: FileItem[];
+  error?: string;
+  details?: string;
+}
+
 /**
  * Find an existing vault by name
  */
@@ -145,6 +158,31 @@ export const getFile = async (fileId: string): Promise<GetFileResponse> => {
     return data;
   } catch (error) {
     console.error('Error getting file:', error);
+    return {
+      success: false,
+      error: 'Network error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+/**
+ * List all files in a vault
+ */
+export const listFiles = async (vaultId: string): Promise<ListFilesResponse> => {
+  try {
+    const response = await fetch('/api/vault/list', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ vaultId }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error listing files:', error);
     return {
       success: false,
       error: 'Network error',
