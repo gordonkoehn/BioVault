@@ -11,7 +11,7 @@ import logging
 from uagents import Agent, Bureau, Context, Model
 from uagents.setup import fund_agent_if_low
 
-from agent_messages import (
+from .agent_messages import (
     ClaimEvaluationMessage, VerdictResponseMessage, ConsensusRequestMessage,
     ConsensusResponseMessage, HealthCheckMessage, HealthResponseMessage,
     AgentRegistrationMessage, AgentDiscoveryMessage, AgentListMessage,

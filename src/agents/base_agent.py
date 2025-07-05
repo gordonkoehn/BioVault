@@ -16,7 +16,7 @@ from uagents import Agent, Context, Model
 from uagents.setup import fund_agent_if_low
 import base64
 
-from schemas import (
+from .schemas import (
     AgentVerdict, VerdictType, CoverageReason, 
     PolicySummary, InvoiceSummary, ExecutionContext,
     AgentSignature, ClaimEvaluationRequest
@@ -52,7 +52,7 @@ class BaseEvaluationAgent(ABC):
         # Thread pool for CPU-bound operations
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         
-        # Initialize uAgent
+        # Initialize uAgent with proper security
         self.agent = Agent(
             name=agent_id,
             seed=seed_phrase,
@@ -63,8 +63,20 @@ class BaseEvaluationAgent(ABC):
         # Setup logging with proper configuration
         self.logger = self._setup_logging()
         
-        # Note: ASI native signing will be used via uAgent's built-in identity
+        # Log addresses (safe to log - public information)
         self.logger.info(f"Agent address: {self.agent.address}")
+        self.logger.info(f"Wallet address: {self.agent.wallet.address()}")
+        
+        # Optional funding (controlled by environment variable for security)
+        auto_fund = os.getenv("AUTO_FUND", "true").lower() == "true"
+        if auto_fund:
+            try:
+                fund_agent_if_low(self.agent.wallet.address())
+                self.logger.info("Agent funding check completed")
+            except Exception as e:
+                self.logger.warning(f"Funding check failed (normal for testnet): {e}")
+        else:
+            self.logger.info("Auto-funding disabled (AUTO_FUND=false)")
         
         # Setup handlers
         self._setup_handlers()
@@ -220,10 +232,16 @@ class BaseEvaluationAgent(ABC):
         """Extract structured data from invoice PDF"""
         pass
     
-    async def run_in_executor(self, func, *args):
+    async def run_in_executor(self, func, *args, **kwargs):
         """Run CPU-bound operations in thread executor to avoid blocking event loop"""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self.executor, func, *args)
+        # Use partial to handle keyword arguments
+        if kwargs:
+            from functools import partial
+            func_with_kwargs = partial(func, *args, **kwargs)
+            return await loop.run_in_executor(self.executor, func_with_kwargs)
+        else:
+            return await loop.run_in_executor(self.executor, func, *args)
     
     def sign_verdict_asi_native(self, verdict: AgentVerdict, message_id: str = None) -> AgentSignature:
         """
@@ -231,14 +249,6 @@ class BaseEvaluationAgent(ABC):
         Production implementation following Agentverse signing conventions
         """
         import hashlib
-        
-        # Validate wallet funding before signing (Agentverse requirement)
-        try:
-            if hasattr(self.agent.wallet, 'is_funded') and not self.agent.wallet.is_funded():
-                raise RuntimeError("Wallet not funded for signing - please fund wallet for Agentverse operations")
-        except AttributeError:
-            # Wallet doesn't have is_funded method, continue with signing
-            self.logger.debug("Wallet funding check not available, proceeding with signing")
         
         # Select fields to sign (deterministic order for consistent signatures)
         signed_fields = [
@@ -269,11 +279,17 @@ class BaseEvaluationAgent(ABC):
         payload_json = json.dumps(payload, sort_keys=True, separators=(',', ':'))
         
         try:
+            # Validate wallet funding before signing (Agentverse requirement)
+            if hasattr(self.agent.wallet, 'is_funded') and not self.agent.wallet.is_funded():
+                self.logger.warning("Wallet not funded for signing - falling back to test signature")
+                # Raise an exception to trigger the fallback mechanism
+                raise Exception("Wallet funding unavailable - using fallback signature")
+            
             # Hash the payload with SHA256 matching Agentverse convention
             payload_hash = hashlib.sha256(payload_json.encode('utf-8')).digest()
             
-            # Use uAgent's built-in wallet signing on the hash
-            signature_bytes = self.agent.wallet.sign(payload_hash)
+            # Use ASI wallet signer for proper cryptographic signing
+            signature_bytes = self.agent.wallet.signer().sign(payload_hash)
             
             # Convert signature to hex string for storage
             signature_hex = signature_bytes.hex()
@@ -284,7 +300,7 @@ class BaseEvaluationAgent(ABC):
                 value=signature_hex,
                 algorithm="secp256k1",  
                 signed_fields=signed_fields,
-                signer_address=self.agent.wallet.address()  # Include wallet address for verification
+                signer_address=str(self.agent.wallet.address())  # Convert Address object to string
             )
             
         except Exception as e:
