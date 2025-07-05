@@ -142,7 +142,7 @@ export default function InsuranceDashboard() {
             onClick={refreshClaims}
             disabled={loadingFiles}
           >
-            {loadingFiles ? "Loading..." : "Refresh Database"}
+            {loadingFiles ? "Loading..." : "Refresh"}
           </button>
         </div>
 
