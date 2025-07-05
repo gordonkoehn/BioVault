@@ -60,7 +60,7 @@ export default function ZKProofDemo() {
         setError(result.error || 'Failed to generate proof');
       }
     } catch (err) {
-      setError('Error generating proof: ' + err.message);
+      setError('Error generating proof: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsGenerating(false);
     }
@@ -93,7 +93,7 @@ export default function ZKProofDemo() {
         setError(result.error || 'Failed to verify proof');
       }
     } catch (err) {
-      setError('Error verifying proof: ' + err.message);
+      setError('Error verifying proof: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsVerifying(false);
     }
