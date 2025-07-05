@@ -1,6 +1,6 @@
 """
 Pytest configuration and shared fixtures for Bio Vault agent testing
-Enhanced with signature verification, message tracking, and parametrized tests
+with signature verification, message tracking, and parametrized tests
 """
 import pytest
 import asyncio
@@ -100,7 +100,7 @@ def sample_agent_verdict(sample_policy_summary, sample_invoice_summary):
 
 @pytest.fixture
 def temp_pdf_files():
-    """Create temporary PDF files for testing"""
+    """Create temporary PDF files for testing, TODO use actual invoice / policy dummy"""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create dummy PDF content (minimal valid PDF)
         pdf_content = b"""%PDF-1.4
