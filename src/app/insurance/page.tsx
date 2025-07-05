@@ -47,7 +47,6 @@ function mergeClaimsWithFiles(localClaims: Claim[], vaultFiles: FileItem[]): Sub
 }
 
 export default function InsuranceDashboard() {
-  const [claims, setClaims] = useState<Claim[]>([]);
   const [submittedFiles, setSubmittedFiles] = useState<SubmittedFile[]>([]);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [eligibility, setEligibility] = useState<null | boolean>(null);
@@ -61,7 +60,6 @@ export default function InsuranceDashboard() {
       
       // Get local claims data
       const localClaims = getLocalClaims();
-      setClaims(localClaims);
       
       // Get vault files if user has a vault
       const vaultId = getUserVaultId();
@@ -75,9 +73,7 @@ export default function InsuranceDashboard() {
       }
     } catch (error) {
       console.error('Error loading claims and files:', error);
-      // Fallback to just local claims
-      const localClaims = getLocalClaims();
-      setClaims(localClaims);
+      // Fallback to empty files list
       setSubmittedFiles([]);
     } finally {
       setLoadingFiles(false);
