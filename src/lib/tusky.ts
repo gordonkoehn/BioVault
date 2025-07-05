@@ -1,10 +1,7 @@
 import { Tusky } from "@tusky-io/ts-sdk";
-import * as dotenv from "dotenv";
 
-// Load environment variables from .env file
-dotenv.config();
 
-const APIKEY = process.env.TUSKY_API_KEY as string;
+const APIKEY = process.env.NEXT_TUSKY_API_KEY as string;
 const VAULT_NAME = "BioVault01"
 let vaultId = "" // needs to be created with createVault first
 const fileIds: string[] = [];

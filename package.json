@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@privy-io/react-auth": "^2.17.3",
+    "@tusky-io/ts-sdk": "^0.32.0",
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
     "crypto-js": "^4.2.0",
