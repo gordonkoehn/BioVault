@@ -124,7 +124,6 @@ export default function InsuranceDashboard() {
           >
             {loadingFiles ? "Loading..." : "Refresh Database"}
           </button>
-          <span className="text-lg text-gray-700">({claims.length} claims detected)</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
