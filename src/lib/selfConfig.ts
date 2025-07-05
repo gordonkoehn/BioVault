@@ -1,7 +1,7 @@
-import { IConfigStorage, VerificationConfig } from '@selfxyz/core';
+import { VerificationConfig } from '@selfxyz/core';
 
 export class SimpleConfigStorage  {
-  async getConfig(configId: string): Promise<VerificationConfig> {
+  async getConfig(): Promise<VerificationConfig> {
     return {
       minimumAge: 18,
       excludedCountries: ['IRN', 'PRK'],
