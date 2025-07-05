@@ -1,7 +1,7 @@
 'use client';
 
 import { usePrivy } from '@privy-io/react-auth';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createVault, findVault } from '@/lib/tuskyClient';
 
 export default function LoginButton() {
@@ -9,72 +9,117 @@ export default function LoginButton() {
   const [vaultStatus, setVaultStatus] = useState<'idle' | 'creating' | 'created' | 'error'>('idle');
   const [vaultId, setVaultId] = useState<string | null>(null);
 
-  // Create or find vault when user authenticates
-  useEffect(() => {
-    const getOrCreateUserVault = async () => {
-      if (authenticated && user && vaultStatus === 'idle') {
-        try {
-          setVaultStatus('creating');
-          
-          // Get user identifier - prioritize email over wallet address
-          const userIdentifier = user.email?.address || user.wallet?.address;
-          if (!userIdentifier) {
-            throw new Error('User identifier is required for vault creation');
-          }
-          
-          // First, try to find existing vault
-          const vaultName = `bv_${userIdentifier}`;
-          const findResponse = await findVault(vaultName);
-          
-          if (findResponse.success && findResponse.found && findResponse.vaultId) {
-            // Existing vault found
-            localStorage.setItem('biovault_vault_id', findResponse.vaultId);
-            setVaultId(findResponse.vaultId);
-            setVaultStatus('created');
-            console.log('Existing vault found:', findResponse.vaultId);
-            return;
-          }
-          
-          // No existing vault, create a new one
-          const createResponse = await createVault(userIdentifier);
-          
-          if (createResponse.success && createResponse.vaultId) {
-            // Store vault ID for later use
-            localStorage.setItem('biovault_vault_id', createResponse.vaultId);
-            setVaultId(createResponse.vaultId);
-            setVaultStatus('created');
-            
-            console.log('New vault created successfully:', createResponse);
-          } else {
-            throw new Error(createResponse.error || 'Failed to create vault');
-          }
-        } catch (error) {
-          console.error('Failed to get or create vault:', error);
-          setVaultStatus('error');
-        }
-      }
-    };
+  // Memoized vault setup function to prevent recreations
+  const setupVault = useCallback(async (userIdentifier: string) => {
+    const lockKey = `vault_processing_${userIdentifier}`;
+    const processedKey = `vault_processed_${userIdentifier}`;
+    
+    // Check if we're already processing this user (persistent across hot reloads)
+    if (localStorage.getItem(lockKey) === 'true') {
+      console.log('🚫 Vault setup already in progress for user, aborting...');
+      return;
+    }
 
-    // Check if vault already exists in localStorage
-    if (authenticated && user) {
+    // Check if we already processed this user (persistent across hot reloads)
+    if (localStorage.getItem(processedKey) === 'true') {
+      console.log('🚫 Vault already processed for this user, aborting...');
+      return;
+    }
+
+    try {
+      // Set processing lock
+      localStorage.setItem(lockKey, 'true');
+      localStorage.setItem(processedKey, 'true');
+      setVaultStatus('creating');
+      
+      console.log('🔄 Starting vault setup for:', userIdentifier);
+      
+      // Check localStorage first for existing vault
       const existingVaultId = localStorage.getItem('biovault_vault_id');
       if (existingVaultId) {
+        console.log('✅ Found vault in localStorage:', existingVaultId);
         setVaultId(existingVaultId);
         setVaultStatus('created');
-      } else {
-        getOrCreateUserVault();
+        return;
       }
+      
+      // Try to find existing vault via API
+      const vaultName = `bv_${userIdentifier}`;
+      console.log('🔍 Searching for existing vault:', vaultName);
+      const findResponse = await findVault(vaultName);
+      
+      if (findResponse.success && findResponse.found && findResponse.vaultId) {
+        console.log('✅ Found existing vault:', findResponse.vaultId);
+        localStorage.setItem('biovault_vault_id', findResponse.vaultId);
+        setVaultId(findResponse.vaultId);
+        setVaultStatus('created');
+        return;
+      }
+      
+      // Create new vault only if none exists
+      console.log('🆕 Creating new vault for:', userIdentifier);
+      const createResponse = await createVault(userIdentifier);
+      
+      if (createResponse.success && createResponse.vaultId) {
+        console.log('✅ Vault creation successful:', {
+          vaultId: createResponse.vaultId,
+          message: createResponse.message
+        });
+        localStorage.setItem('biovault_vault_id', createResponse.vaultId);
+        setVaultId(createResponse.vaultId);
+        setVaultStatus('created');
+      } else {
+        throw new Error(createResponse.error || 'Failed to create vault');
+      }
+    } catch (error) {
+      console.error('❌ Vault setup failed:', error);
+      setVaultStatus('error');
+      // Clear locks on error to allow retry
+      localStorage.removeItem(lockKey);
+      localStorage.removeItem(processedKey);
+    } finally {
+      // Remove processing lock but keep processed flag
+      localStorage.removeItem(lockKey);
+      console.log('🏁 Vault setup completed');
     }
-  }, [authenticated, user, vaultStatus]);
+  }, []);
 
-  // Reset vault status when user logs out
+  // Single effect to handle authentication state
   useEffect(() => {
-    if (!authenticated) {
-      setVaultStatus('idle');
-      setVaultId(null);
-      localStorage.removeItem('biovault_vault_id');
+    if (!authenticated || !user) {
+      // Reset state when not authenticated
+      if (!authenticated) {
+        console.log('🔓 User logged out, resetting vault state');
+        setVaultStatus('idle');
+        setVaultId(null);
+        localStorage.removeItem('biovault_vault_id');
+        // Clear all processing flags
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('vault_processing_') || key.startsWith('vault_processed_')) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+      return;
     }
-  }, [authenticated]);
+
+    // Only proceed if we haven't processed a vault yet
+    if (vaultStatus !== 'idle') {
+      console.log('🔄 Vault status not idle:', vaultStatus);
+      return;
+    }
+
+    // Get user identifier
+    const userIdentifier = user.email?.address || user.wallet?.address;
+    if (!userIdentifier) {
+      console.error('❌ No user identifier found');
+      setVaultStatus('error');
+      return;
+    }
+
+    console.log('🚀 Triggering vault setup for authenticated user:', userIdentifier);
+    setupVault(userIdentifier);
+  }, [authenticated, user, vaultStatus, setupVault]);
 
   if (!ready) {
     return (

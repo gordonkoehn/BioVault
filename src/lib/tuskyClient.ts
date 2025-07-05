@@ -5,6 +5,7 @@ export interface CreateVaultResponse {
   success: boolean;
   vaultId?: string;
   vaultName?: string;
+  message?: string;
   error?: string;
   details?: string;
 }

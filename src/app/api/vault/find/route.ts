@@ -6,6 +6,9 @@ const APIKEY = process.env.TUSKY_API_KEY as string;
 export async function POST(request: NextRequest) {
   try {
     const { vaultName } = await request.json();
+    const requestId = Math.random().toString(36).substr(2, 9);
+    
+    console.log(`🔍 [${requestId}] Vault find request for:`, vaultName);
     
     if (!vaultName) {
       return NextResponse.json({ error: 'Vault name is required' }, { status: 400 });
@@ -19,11 +22,13 @@ export async function POST(request: NextRequest) {
     
     // Get all vaults for the current user
     const vaults = await client.vault.listAll();
+    console.log(`📋 [${requestId}] Searching through ${vaults.length} vaults for:`, vaultName);
     
     // Find vault by name
     const existingVault = vaults.find(vault => vault.name === vaultName);
     
     if (existingVault) {
+      console.log(`✅ [${requestId}] Found vault:`, existingVault.id);
       return NextResponse.json({ 
         success: true, 
         found: true,
@@ -31,6 +36,7 @@ export async function POST(request: NextRequest) {
         vaultName: existingVault.name
       });
     } else {
+      console.log(`❌ [${requestId}] Vault not found:`, vaultName);
       return NextResponse.json({ 
         success: true, 
         found: false
@@ -38,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
     
   } catch (error) {
-    console.error('Failed to find vault:', error);
+    console.error('❌ Failed to find vault:', error);
     return NextResponse.json({ 
       error: 'Failed to find vault',
       details: error instanceof Error ? error.message : 'Unknown error'
