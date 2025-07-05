@@ -42,7 +42,7 @@ export default function SubmitClaimPage() {
         const encrypted = BiometricEncryption.encrypt(fileData);
         // Simulate ZK proof
         const proof = await ZKProofSimulator.generateProof({
-          biometricType: biometricType as any,
+          biometricType: biometricType as "iris" | "heartbeat" | "fingerprint" | "face" | "voice",
           dataHash: fileHash,
           requirements: { minAge, insuranceType },
         });
@@ -67,8 +67,8 @@ export default function SubmitClaimPage() {
         setSubmitting(false);
       };
       reader.readAsDataURL(file);
-    } catch (err: any) {
-      setError(err.message || "Submission failed.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Submission failed.");
       setSubmitting(false);
     }
   };

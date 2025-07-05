@@ -2,6 +2,21 @@
 import { useState, useEffect } from "react";
 import { ZKProofSimulator, BiometricProof } from "@/lib/zk-proofs";
 
+// Define proper types for the claims
+interface ClaimRequirements {
+  minAge: number;
+  insuranceType: string;
+  [key: string]: unknown; // Index signature to match Record<string, unknown>
+}
+
+interface Claim {
+  id: string;
+  biometricType: string;
+  submittedAt: number;
+  proof: BiometricProof;
+  requirements: ClaimRequirements;
+}
+
 // Helper to get claims from localStorage or fallback to dummy data
 function getClaims() {
   if (typeof window === "undefined") return [];
@@ -41,8 +56,8 @@ function getClaims() {
 }
 
 export default function InsuranceDashboard() {
-  const [claims, setClaims] = useState<any[]>([]);
-  const [selectedClaim, setSelectedClaim] = useState<any | null>(null);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [eligibility, setEligibility] = useState<null | boolean>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,7 +73,7 @@ export default function InsuranceDashboard() {
     setEligibility(null);
   };
 
-  const checkEligibility = async (claim: any) => {
+  const checkEligibility = async (claim: Claim) => {
     setLoading(true);
     setEligibility(null);
     // Simulate eligibility check using ZKProofSimulator

@@ -2,7 +2,7 @@ export interface BiometricProof {
   proofId: string;
   biometricType: 'iris' | 'heartbeat' | 'fingerprint' | 'face' | 'voice';
   proofHash: string;
-  publicInputs: Record<string, any>;
+  publicInputs: Record<string, unknown>;
   timestamp: number;
   verified: boolean;
 }
@@ -44,7 +44,7 @@ export class ZKProofSimulator {
     };
   }
 
-  private static generatePublicInputs(request: ProofRequest): Record<string, any> {
+  private static generatePublicInputs(request: ProofRequest): Record<string, unknown> {
     const baseInputs = {
       dataType: request.biometricType,
       dataHash: request.dataHash,
@@ -103,7 +103,7 @@ export class ZKProofSimulator {
     }
   }
 
-  private static generateProofHash(dataHash: string, publicInputs: Record<string, any>): string {
+  private static generateProofHash(dataHash: string, publicInputs: Record<string, unknown>): string {
     const combined = dataHash + JSON.stringify(publicInputs) + Date.now();
     return btoa(combined).replace(/[^a-zA-Z0-9]/g, '').substring(0, 64);
   }
@@ -122,7 +122,7 @@ export class ZKProofSimulator {
 
   static async generateEligibilityProof(
     biometricProof: BiometricProof,
-    requirements: Record<string, any>
+    requirements: Record<string, unknown>
   ): Promise<BiometricProof> {
     // Simulate eligibility verification
     await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 2000));
