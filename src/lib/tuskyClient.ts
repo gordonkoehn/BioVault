@@ -110,6 +110,32 @@ export const uploadFile = async (vaultId: string, filePath: string): Promise<Upl
 };
 
 /**
+ * Upload a File object to the vault
+ */
+export const uploadFileObject = async (vaultId: string, file: File): Promise<UploadFileResponse> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('vaultId', vaultId);
+
+    const response = await fetch('/api/vault/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return {
+      success: false,
+      error: 'Network error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+/**
  * Get a file from the vault
  */
 export const getFile = async (fileId: string): Promise<GetFileResponse> => {
