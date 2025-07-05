@@ -1,6 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { ZKProofSimulator, BiometricProof } from "@/lib/zk-proofs";
+import { listFiles } from "@/lib/tusky";
+import { getUserVaultId } from "@/lib/vault";
+import { FileItem } from "@/lib/tuskyClient";
 
 // Define proper types for the claims
 interface ClaimRequirements {
@@ -15,60 +18,80 @@ interface Claim {
   submittedAt: number;
   proof: BiometricProof;
   requirements: ClaimRequirements;
+  tuskyFileId?: string; // Add this to link to vault files
 }
 
-// Helper to get claims from localStorage or fallback to dummy data
-function getClaims() {
+interface SubmittedFile extends FileItem {
+  claimData?: Claim; // Optional claim data from localStorage
+}
+
+// Helper to get claims from localStorage
+function getLocalClaims(): Claim[] {
   if (typeof window === "undefined") return [];
   const stored = localStorage.getItem("claims");
-  if (stored) return JSON.parse(stored);
-  // fallback dummy data for first load
-  return [
-    {
-      id: "claim_1",
-      biometricType: "iris",
-      submittedAt: Date.now() - 1000 * 60 * 60,
-      proof: {
-        proofId: "proof_iris_1",
-        biometricType: "iris",
-        proofHash: "abc123...",
-        publicInputs: { irisPattern: "verified", uniqueness: 0.99 },
-        timestamp: Date.now() - 1000 * 60 * 60,
-        verified: true,
-      },
-      requirements: { minAge: 18, insuranceType: "health" },
-    },
-    {
-      id: "claim_2",
-      biometricType: "heartbeat",
-      submittedAt: Date.now() - 1000 * 60 * 30,
-      proof: {
-        proofId: "proof_heartbeat_1",
-        biometricType: "heartbeat",
-        proofHash: "def456...",
-        publicInputs: { heartRate: "normal", bpm: "72" },
-        timestamp: Date.now() - 1000 * 60 * 30,
-        verified: true,
-      },
-      requirements: { minAge: 21, insuranceType: "life" },
-    },
-  ];
+  return stored ? JSON.parse(stored) : [];
+}
+
+// Helper to merge vault files with local claim data
+function mergeClaimsWithFiles(localClaims: Claim[], vaultFiles: FileItem[]): SubmittedFile[] {
+  const mergedFiles: SubmittedFile[] = vaultFiles.map(file => {
+    // Try to find matching claim data by file ID
+    const matchingClaim = localClaims.find(claim => claim.tuskyFileId === file.id);
+    return {
+      ...file,
+      claimData: matchingClaim
+    };
+  });
+  
+  return mergedFiles;
 }
 
 export default function InsuranceDashboard() {
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [submittedFiles, setSubmittedFiles] = useState<SubmittedFile[]>([]);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [eligibility, setEligibility] = useState<null | boolean>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+
+  // Load claims and files from both localStorage and vault
+  const loadClaimsAndFiles = async () => {
+    try {
+      setLoadingFiles(true);
+      
+      // Get local claims data
+      const localClaims = getLocalClaims();
+      setClaims(localClaims);
+      
+      // Get vault files if user has a vault
+      const vaultId = getUserVaultId();
+      if (vaultId) {
+        const vaultFiles = await listFiles();
+        const mergedData = mergeClaimsWithFiles(localClaims, vaultFiles || []);
+        setSubmittedFiles(mergedData);
+      } else {
+        // If no vault, just show local claims without file data
+        setSubmittedFiles([]);
+      }
+    } catch (error) {
+      console.error('Error loading claims and files:', error);
+      // Fallback to just local claims
+      const localClaims = getLocalClaims();
+      setClaims(localClaims);
+      setSubmittedFiles([]);
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
 
   // Load claims from localStorage on mount
   useEffect(() => {
-    setClaims(getClaims());
+    loadClaimsAndFiles();
   }, []);
 
-  // Refresh claims from localStorage
+  // Refresh claims from localStorage and vault
   const refreshClaims = () => {
-    setClaims(getClaims());
+    loadClaimsAndFiles();
     setSelectedClaim(null);
     setEligibility(null);
   };
@@ -97,44 +120,68 @@ export default function InsuranceDashboard() {
           <button
             className="py-2 px-6 rounded-lg border border-gray-300 text-base font-semibold bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black transition"
             onClick={refreshClaims}
+            disabled={loadingFiles}
           >
-            Refresh Database
+            {loadingFiles ? "Loading..." : "Refresh Database"}
           </button>
           <span className="text-lg text-gray-700">({claims.length} claims detected)</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Claims List */}
+          {/* Submitted Files from Vault */}
           <div className="rounded-2xl shadow border bg-white p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-900">Incoming Claims</h2>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {claims.map((claim) => (
-                <div
-                  key={claim.id}
-                  className={`p-4 rounded-lg cursor-pointer transition-all duration-300 border ${
-                    selectedClaim?.id === claim.id 
-                      ? "border-black bg-gray-100" 
-                      : "border-gray-200 hover:border-black hover:bg-gray-50"
-                  }`}
-                  onClick={() => {
-                    setSelectedClaim(claim);
-                    setEligibility(null);
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-gray-900">Claim ID: {claim.id}</div>
-                      <div className="text-sm text-gray-700">Biometric: {claim.biometricType.toUpperCase()}</div>
-                      <div className="text-xs text-gray-500">Timestamp: {new Date(claim.submittedAt).toLocaleString()}</div>
+            {loadingFiles ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div>
+                <p className="mt-2 text-gray-600">Loading files from vault...</p>
+              </div>
+            ) : submittedFiles.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {submittedFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className={`p-4 rounded-lg cursor-pointer transition-all duration-300 border ${
+                      selectedClaim?.tuskyFileId === file.id 
+                        ? "border-black bg-gray-100" 
+                        : "border-gray-200 hover:border-black hover:bg-gray-50"
+                    }`}
+                    onClick={() => {
+                      if (file.claimData) {
+                        setSelectedClaim(file.claimData);
+                        setEligibility(null);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-2xl">📄</div>
+                        <div>
+                          <div className="font-bold text-xl text-blue-700">{file.name}</div>
+                          <div className="text-sm text-gray-700">Size: {(file.size / 1024).toFixed(2)} KB</div>
+                          <div className="text-xs text-gray-500">File ID: {file.id.substring(0, 12)}...</div>
+                          {file.claimData && (
+                            <div className="text-xs text-green-600 mt-1">
+                              ✓ Claim Data: {file.claimData.biometricType.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`w-2 h-2 rounded-full ${file.claimData ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
                     </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">📋</div>
+                <p>No files found in vault</p>
+                <p className="text-sm">Submit biometric claims to see them here</p>
+              </div>
+            )}
           </div>
 
-          {/* Claim Details */}
+          {/* Claim Analysis */}
           <div className="rounded-2xl shadow border bg-white p-6 min-h-[300px] flex flex-col justify-center">
             {selectedClaim ? (
               <div>
@@ -146,6 +193,26 @@ export default function InsuranceDashboard() {
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">
                     <span className="text-gray-700 font-semibold">Biometric Type:</span> {selectedClaim.biometricType.toUpperCase()}
                   </div>
+                  {selectedClaim.tuskyFileId && (
+                    <>
+                      {(() => {
+                        // Find the corresponding file name from submittedFiles
+                        const correspondingFile = submittedFiles.find(f => f.id === selectedClaim.tuskyFileId);
+                        return correspondingFile ? (
+                          <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                            <span className="text-blue-700 font-semibold text-lg">📄 File:</span> 
+                            <span className="text-blue-600 ml-2 font-bold text-lg">{correspondingFile.name}</span>
+                            <div className="text-sm text-blue-600 mt-2">Size: {(correspondingFile.size / 1024).toFixed(2)} KB</div>
+                          </div>
+                        ) : (
+                          <div className="bg-green-50 p-3 rounded border border-green-200">
+                            <span className="text-green-700 font-semibold">Storage:</span> 
+                            <span className="text-green-600 ml-2">✓ Stored in vault</span>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">
                     <span className="text-gray-700 font-semibold">Requirements:</span>
                     <div className="mt-2 space-y-1">
@@ -179,6 +246,7 @@ export default function InsuranceDashboard() {
                 <div>
                   <div className="text-6xl mb-4">🔍</div>
                   <div className="text-lg">Select a claim to analyze</div>
+                  <div className="text-sm mt-2">Choose from incoming claims on the left</div>
                 </div>
               </div>
             )}
