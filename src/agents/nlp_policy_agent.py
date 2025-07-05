@@ -1,7 +1,7 @@
 """
 NLP Policy Agent for Bio Vault insurance claim evaluation
 ASI integration with swappable LLM backends for multi-agent consensus
-Supports Claude, GPT-4 through adapter pattern
+Supports Claude, GPT-4, ASI1 through adapter pattern
 """
 import os
 import json
@@ -15,6 +15,8 @@ from io import BytesIO
 
 import anthropic
 import openai
+import requests
+import aiohttp
 import PyPDF2
 import pdfplumber
 from cryptography.fernet import Fernet
@@ -486,6 +488,281 @@ JSON format:
         except Exception as e:
             if self.logger:
                 self.logger.warning(f"Health check failed: {e}")
+            return False
+
+
+class ASI1LLMAdapter(LLMAdapter):
+    """ASI1-specific LLM adapter using Fetch.ai's ASI-1 Mini API"""
+    
+    def __init__(self, api_key: str = None, model_name: str = "asi1-mini", 
+                 max_retries: int = 3, base_delay: float = 1.0):
+        self._api_key = api_key or os.getenv("ASI_API_KEY")
+        self._model_name = model_name
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.api_endpoint = "https://api.asi1.ai/v1/chat/completions"
+        self.logger = None
+        
+        if not self._api_key:
+            raise ValueError("ASI API key required - set ASI_API_KEY environment variable")
+        
+        # ASI1-optimized model configuration
+        self.model_config = {
+            "policy_extraction": {
+                "model": self._model_name,
+                "max_tokens": 4000,
+                "temperature": 0.1,
+                "stream": False
+            },
+            "invoice_extraction": {
+                "model": self._model_name,
+                "max_tokens": 2000,
+                "temperature": 0.1,
+                "stream": False
+            },
+            "claim_evaluation": {
+                "model": self._model_name,
+                "max_tokens": 3000,
+                "temperature": 0.2,
+                "stream": False
+            }
+        }
+    
+    @property
+    def model_name(self) -> str:
+        return f"asi-{self._model_name}"
+    
+    def set_logger(self, logger):
+        self.logger = logger
+    
+    async def _call_with_retry(self, config_key: str, prompt: str) -> str:
+        """Call ASI API with retry logic"""
+        config = self.model_config[config_key]
+        
+        for attempt in range(self.max_retries):
+            try:
+                if self.logger:
+                    self.logger.debug(f"ASI1 call {attempt+1}/{self.max_retries} for {config_key}")
+                
+                # Prepare request payload
+                payload = {
+                    "model": config["model"],
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": config["temperature"],
+                    "max_tokens": config["max_tokens"],
+                    "stream": config["stream"]
+                }
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': f'Bearer {self._api_key}'
+                }
+                
+                # Make async HTTP request
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        self.api_endpoint,
+                        json=payload,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            if self.logger:
+                                self.logger.debug(f"ASI1 raw response: {result}")
+                            
+                            if 'choices' in result and len(result['choices']) > 0:
+                                response_text = result['choices'][0]['message']['content']
+                                
+                                # ASI API returns JSON wrapped in markdown code blocks - extract it
+                                if response_text.startswith('```json') and response_text.endswith('```'):
+                                    response_text = response_text[7:-3].strip()  # Remove ```json and ```
+                                elif response_text.startswith('```') and response_text.endswith('```'):
+                                    response_text = response_text[3:-3].strip()  # Remove generic ```
+                                
+                                if self.logger:
+                                    self.logger.debug(f"ASI1 success: {len(response_text)} chars")
+                                return response_text
+                            else:
+                                raise Exception(f"Unexpected ASI API response format: {result}")
+                        else:
+                            error_text = await response.text()
+                            if self.logger:
+                                self.logger.error(f"ASI API error {response.status}: {error_text}")
+                            raise Exception(f"ASI API error {response.status}: {error_text}")
+                
+            except asyncio.TimeoutError:
+                if self.logger:
+                    self.logger.warning(f"ASI API timeout on attempt {attempt+1}")
+                if attempt == self.max_retries - 1:
+                    raise
+                delay = self.base_delay * (2 ** attempt)
+                await asyncio.sleep(delay)
+                
+            except Exception as e:
+                if self.logger:
+                    self.logger.warning(f"ASI API error on attempt {attempt+1}: {e}")
+                if attempt == self.max_retries - 1:
+                    raise
+                delay = self.base_delay * (2 ** attempt) + random.uniform(0, 1)
+                await asyncio.sleep(delay)
+    
+    async def extract_policy_data(self, policy_text: str) -> Dict[str, Any]:
+        """Extract structured policy data using ASI1"""
+        prompt = f"""You are an expert insurance policy analyst. Extract key information from this insurance policy document and respond ONLY with valid JSON.
+
+POLICY DOCUMENT:
+{policy_text[:8000]}
+
+Extract the following information and respond in JSON format:
+{{
+    "policy_number": "string",
+    "coverage_type": "string (e.g., 'comprehensive_health', 'dental', 'vision')",
+    "annual_limit": number,
+    "deductible": number or null,
+    "copay_percentage": number or null (0-100),
+    "exclusions": ["array", "of", "exclusion", "categories"],
+    "covered_services": ["array", "of", "covered", "services"],
+    "effective_dates": {{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}},
+    "special_conditions": ["array", "of", "special", "conditions"] or null
+}}
+
+Focus on exact policy numbers, dates, numerical limits, and specific exclusions/inclusions.
+If information is unclear or missing, use null for that field.
+Respond with ONLY the JSON object, no additional text."""
+        
+        response_text = await self._call_with_retry("policy_extraction", prompt)
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError as e:
+            if self.logger:
+                self.logger.error(f"JSON parsing failed for policy extraction. Response: '{response_text}', Error: {e}")
+            raise Exception(f"ASI API returned invalid JSON for policy extraction: {response_text[:200]}...")
+    
+    async def extract_invoice_data(self, invoice_text: str) -> Dict[str, Any]:
+        """Extract structured invoice data using ASI1"""
+        prompt = f"""You are an expert medical billing analyst. Extract key information from this medical invoice/claim and respond ONLY with valid JSON.
+
+INVOICE DOCUMENT:
+{invoice_text[:6000]}
+
+Extract the following information and respond in JSON format:
+{{
+    "invoice_number": "string",
+    "service_type": "string (e.g., 'dental_cleaning', 'routine_checkup', 'emergency_care')",
+    "amount": number,
+    "service_date": "YYYY-MM-DD",
+    "provider_id": "string",
+    "provider_name": "string or null",
+    "diagnosis_codes": ["array", "of", "ICD10", "codes"] or null,
+    "procedure_codes": ["array", "of", "CPT", "codes"] or null,
+    "itemized_charges": {{"service_name": amount}} or null
+}}
+
+Focus on exact invoice numbers, dates, monetary amounts, provider info, and medical codes.
+If information is unclear or missing, use null for that field.
+Respond with ONLY the JSON object, no additional text."""
+        
+        response_text = await self._call_with_retry("invoice_extraction", prompt)
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError as e:
+            if self.logger:
+                self.logger.error(f"JSON parsing failed for invoice extraction. Response: '{response_text}', Error: {e}")
+            raise Exception(f"ASI API returned invalid JSON for invoice extraction: {response_text[:200]}...")
+    
+    async def evaluate_claim(self, policy: PolicySummary, invoice: InvoiceSummary,
+                           policy_text: str, invoice_text: str) -> Dict[str, Any]:
+        """Evaluate insurance claim using ASI1"""
+        prompt = f"""You are a world-class insurance claim evaluator with deep expertise in policy interpretation. Evaluate this claim and respond ONLY with valid JSON.
+
+POLICY SUMMARY:
+{policy.json()}
+
+INVOICE SUMMARY:
+{invoice.json()}
+
+FULL POLICY TEXT (for reference):
+{policy_text[:4000]}
+
+FULL INVOICE TEXT (for reference):
+{invoice_text[:2000]}
+
+Evaluate whether this claim should be COVERED, NOT_COVERED, PARTIAL_COVERAGE, or REQUIRES_REVIEW.
+
+Respond in JSON format:
+{{
+    "verdict": "COVERED|NOT_COVERED|PARTIAL_COVERAGE|REQUIRES_REVIEW",
+    "coverage_amount": number or null,
+    "primary_reason": "Clear, concise explanation",
+    "supporting_reasons": [
+        {{
+            "clause_reference": "Policy section reference or null",
+            "explanation": "Detailed explanation",
+            "confidence": 0.0-1.0
+        }}
+    ],
+    "ambiguity_detected": boolean,
+    "ambiguous_clauses": ["list", "of", "unclear", "clauses"] or null,
+    "requires_human_review": boolean,
+    "review_reasons": ["reasons", "for", "review"] or null
+}}
+
+Evaluation criteria:
+1. Service type coverage under policy
+2. Amount within policy limits  
+3. Provider eligibility
+4. Deductible and copay calculations
+5. Exclusion analysis
+6. Date validity (service within policy period)
+
+Mark requires_human_review=true for ambiguous policy language, edge cases, claims near limits, or missing critical information.
+Be thorough but decisive. Provide specific policy references when possible.
+Respond with ONLY the JSON object, no additional text."""
+        
+        response_text = await self._call_with_retry("claim_evaluation", prompt)
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError as e:
+            if self.logger:
+                self.logger.error(f"JSON parsing failed for claim evaluation. Response: '{response_text}', Error: {e}")
+            raise Exception(f"ASI API returned invalid JSON for claim evaluation: {response_text[:200]}...")
+    
+    async def health_check(self) -> bool:
+        """Check ASI API health"""
+        try:
+            payload = {
+                "model": self._model_name,
+                "messages": [{"role": "user", "content": "Health check"}],
+                "max_tokens": 10,
+                "temperature": 0.1,
+                "stream": False
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {self._api_key}'
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.api_endpoint,
+                    json=payload,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    return response.status == 200
+                    
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"ASI health check failed: {e}")
             return False
 
 

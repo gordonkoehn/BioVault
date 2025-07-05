@@ -16,24 +16,26 @@ load_dotenv(env_path)
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from agents.distributed_orchestrator import DistributedConsensusOrchestrator
-from agents.nlp_policy_agent import NLPPolicyAgent, ClaudeLLMAdapter, GPT4LLMAdapter
+from agents.nlp_policy_agent import NLPPolicyAgent, ClaudeLLMAdapter, GPT4LLMAdapter, ASI1LLMAdapter
 from agents.schemas import ClaimEvaluationRequest
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+asi_api_key = os.getenv("ASI_API_KEY")
 
 async def test_claim_evaluation():
     """Test the full claim evaluation flow with real PDFs"""
     print(" Starting Bio Vault Agent Test Run\n")
     
     # Check API keys
-    if not openai_api_key or not anthropic_api_key:
+    if not openai_api_key or not anthropic_api_key or not asi_api_key:
         print(" Error: API keys required for real testing")
-        print("   Please set both OPENAI_API_KEY and ANTHROPIC_API_KEY environment variables")
+        print("   Please set OPENAI_API_KEY, ANTHROPIC_API_KEY, and ASI_API_KEY environment variables")
         return
     
     print(" OpenAI API key found")
     print(" Anthropic API key found")
+    print(" ASI API key found")
     
     # Setup paths
     test_dir = Path(__file__).parent / "test_pdfs"
@@ -50,7 +52,7 @@ async def test_claim_evaluation():
     # Initialize agents
     print(" Initializing Agents...")
     
-    # Create two evaluation agents (Claude and GPT-4 simulators for testing)
+    # Create three evaluation agents (Claude, GPT-4, and ASI1 for testing)
     agents = []
     
     # Agent 1: Claude-based NLP Policy Agent
@@ -86,6 +88,23 @@ async def test_claim_evaluation():
     )
     agents.append(gpt4_agent)
     print(" Initialized GPT-4 NLP Policy Agent")
+    
+    # Agent 3: ASI1-based NLP Policy Agent
+    asi1_adapter = ASI1LLMAdapter(
+        api_key=asi_api_key,
+        model_name="asi1-mini",
+        max_retries=3
+    )
+    
+    asi1_agent = NLPPolicyAgent(
+        agent_id="asi1_nlp_agent_001",
+        seed_phrase="test_asi1_seed_phrase_abcde",
+        endpoint="http://localhost",
+        port=8003,
+        llm_adapter=asi1_adapter
+    )
+    agents.append(asi1_agent)
+    print(" Initialized ASI1 NLP Policy Agent")
     
     # Initialize orchestrator
     orchestrator = DistributedConsensusOrchestrator(
