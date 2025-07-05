@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack --experimental-https",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@privy-io/react-auth": "^2.17.3",
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
     "crypto-js": "^4.2.0",
