@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Vercel serverless function for multi-agent claim evaluation
+Location: /src/app/api/evaluate_claim/route.py (Next.js App Router)
 Fixes: thread-safety, timeouts, logging, base URL handling
 """
 import os
@@ -11,15 +12,15 @@ import tempfile
 import aiohttp
 import logging
 from typing import Dict, Any, List, Optional
-from pathlib import Path
 import threading
+from http.server import BaseHTTPRequestHandler
 
-# Add src directory to Python path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Add agents directory to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'agents'))
 
 # Import existing agent code
-from agents.nlp_policy_agent import NLPPolicyAgent, ClaudeLLMAdapter, GPT4LLMAdapter, ASI1LLMAdapter
-from agents.schemas import AgentVerdict
+from nlp_policy_agent import NLPPolicyAgent, ClaudeLLMAdapter, GPT4LLMAdapter, ASI1LLMAdapter
+from schemas import AgentVerdict
 
 # Configure logging for serverless environment
 logging.basicConfig(
@@ -79,7 +80,7 @@ async def validate_api_keys() -> Dict[str, str]:
 async def get_cached_agents() -> List[NLPPolicyAgent]:
     """
     Get or create cached agent instances with thread-safety
-    Fixes: Thread-safety of cached agents using asyncio.Lock
+    Fixes: Thread-safety of cached agents using threading.Lock
     """
     global _cached_agents
     
@@ -390,7 +391,6 @@ async def evaluate_claim_multi_agent(data: Dict[str, Any]) -> Dict[str, Any]:
     claim_id = data['claim_id']
     policy_walrus_id = data['policy_walrus_id']
     invoice_walrus_id = data['invoice_walrus_id']
-    vault_id = data['vault_id']
     base_url = data.get('base_url')
     
     if not base_url:
@@ -441,10 +441,11 @@ async def evaluate_claim_multi_agent(data: Dict[str, Any]) -> Dict[str, Any]:
                 "claim_id": claim_id
             }
 
-# Vercel-compatible handler function
+# Vercel serverless function handler (compatible with Next.js App Router)
 def handler(request):
     """
-    Production-ready Vercel serverless function handler
+    Main entry point for Vercel serverless function
+    Compatible with both legacy and App Router
     """
     try:
         logger.info("Received evaluation request")
@@ -468,19 +469,23 @@ def handler(request):
                 'body': json.dumps({"error": "Method not allowed"})
             }
         
-        # Parse request body
+        # Parse request body (handle different request formats)
+        body = None
         if hasattr(request, 'body'):
             body = request.body
         elif hasattr(request, 'data'):
             body = request.data
-        else:
+        elif hasattr(request, 'get_body'):
             body = request.get_body()
+        else:
+            # Fallback for direct testing
+            body = getattr(request, '_body', None)
         
         if isinstance(body, bytes):
             body = body.decode('utf-8')
         
         try:
-            data = json.loads(body)
+            data = json.loads(body) if body else {}
         except json.JSONDecodeError:
             return {
                 'statusCode': 400,
