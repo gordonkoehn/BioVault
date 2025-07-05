@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { BiometricEncryption } from "@/lib/encryption";
-import { ZKProofSimulator } from "@/lib/zk-proofs";
 import { uploadFileObject } from "@/lib/tusky";
 
 const biometricTypes = [
@@ -12,6 +11,12 @@ const biometricTypes = [
   { value: "voice", label: "VOICE PATTERN" },
 ];
 
+interface ZKProof {
+  pi_a: [string, string];
+  pi_b: [[string, string], [string, string]];
+  pi_c: [string, string];
+}
+
 export default function SubmitClaimPage() {
   const [biometricType, setBiometricType] = useState(biometricTypes[0].value);
   const [file, setFile] = useState<File | null>(null);
@@ -20,6 +25,9 @@ export default function SubmitClaimPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [zkProof, setZkProof] = useState<ZKProof | null>(null);
+  const [zkProofError, setZkProofError] = useState<string | null>(null);
+  const [zkProofVerified, setZkProofVerified] = useState<boolean | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -32,32 +40,49 @@ export default function SubmitClaimPage() {
     setSubmitting(true);
     setError("");
     setSuccess(false);
+    setZkProof(null);
+    setZkProofError(null);
+    setZkProofVerified(null);
     try {
       if (!file) throw new Error("Please upload a biometric file.");
-      
       // Upload file to Tusky vault first
       const fileId = await uploadFileObject(file);
       console.log(`File uploaded to Tusky with ID: ${fileId}`);
-      
-      // Simulate file hash
-      const fileHash = await BiometricEncryption.generateFileHash(file);
       // Encrypt file (simulate)
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const fileData = ev.target?.result as string;
         const encrypted = BiometricEncryption.encrypt(fileData);
-        // Simulate ZK proof
-        const proof = await ZKProofSimulator.generateProof({
-          biometricType: biometricType as "iris" | "heartbeat" | "fingerprint" | "face" | "voice",
-          dataHash: fileHash,
-          requirements: { minAge, insuranceType },
-        });
+        // --- ZK Proof Generation ---
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          const response = await fetch('/api/zk-proof', {
+            method: 'POST',
+            body: formData,
+          });
+          const result = await response.json();
+          if (result.success) {
+            setZkProof(result.proof);
+            // Optionally verify proof immediately
+            const verifyRes = await fetch('/api/zk-proof', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ proof: result.proof, publicInputs: result.publicInputs }),
+            });
+            const verifyJson = await verifyRes.json();
+            setZkProofVerified(verifyJson.isValid);
+          } else {
+            setZkProofError(result.error || 'Failed to generate ZK proof');
+          }
+        } catch (zkErr: any) {
+          setZkProofError(zkErr.message || 'Error generating ZK proof');
+        }
         // Save claim to localStorage
         const claim = {
           id: `claim_${Date.now()}`,
           biometricType,
           submittedAt: Date.now(),
-          proof,
           requirements: { minAge, insuranceType },
           encrypted,
           tuskyFileId: fileId, // Store the Tusky file ID
@@ -94,7 +119,23 @@ export default function SubmitClaimPage() {
             <div className="text-center">
               <div className="text-6xl mb-4">✅</div>
               <div className="text-green-600 font-bold mb-4 text-lg">Claim successfully transmitted</div>
-              <div className="text-gray-500 mb-6">Your biometric data has been encrypted and a ZK proof has been generated. View your submitted claims in the insurance dashboard.</div>
+              <div className="text-gray-500 mb-6">Your biometric data has been encrypted and a ZK proof has been generated and verified.</div>
+              {zkProof && (
+                <div className="mb-4">
+                  <h3 className="font-semibold mb-2">ZK Proof</h3>
+                  <pre className="bg-gray-100 rounded p-2 text-xs text-left overflow-x-auto max-h-40">{JSON.stringify(zkProof, null, 2)}</pre>
+                  {zkProofVerified !== null && (
+                    <div className={`mt-2 px-3 py-2 rounded text-sm ${zkProofVerified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {zkProofVerified ? '✅ Proof verified successfully!' : '❌ Proof verification failed!'}
+                    </div>
+                  )}
+                  {zkProofError && (
+                    <div className="mt-2 px-3 py-2 rounded text-sm bg-red-100 text-red-800">
+                      {zkProofError}
+                    </div>
+                  )}
+                </div>
+              )}
               <a 
                 href="/insurance" 
                 className="inline-block w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition"
