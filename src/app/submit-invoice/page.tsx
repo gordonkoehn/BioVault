@@ -85,9 +85,9 @@ export default function TestAgentsPage() {
       <div className="w-full max-w-2xl">
         <div className="rounded-2xl shadow-lg border bg-white px-8 py-10">
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-extrabold mb-2 tracking-tight text-gray-900">Test Agent Evaluation</h1>
+            <h1 className="text-3xl font-extrabold mb-2 tracking-tight text-gray-900">Submit Invoice</h1>
             <div className="w-20 h-1 bg-gray-200 mx-auto mb-2"></div>
-            <p className="text-gray-600 text-base">Upload policy and invoice files to test the AI agent evaluation system.</p>
+            <p className="text-gray-600 text-base">Upload policy and invoice files for evaluation.</p>
           </div>
 
           {success && evaluationResult ? (
@@ -103,7 +103,7 @@ export default function TestAgentsPage() {
 
               {evaluationResult.success && evaluationResult.consensus && (
                 <div className="bg-gray-50 p-6 rounded-lg">
-                  <h3 className="font-bold text-lg mb-4">Agent Consensus Results</h3>
+                  <h3 className="font-bold text-lg mb-4">Invoice Evaluation Results</h3>
                   
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div>
@@ -187,7 +187,7 @@ export default function TestAgentsPage() {
                 }}
                 className="w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition"
               >
-                Test Another Claim
+                Submit Another Invoice
               </button>
             </div>
           ) : (
@@ -247,7 +247,7 @@ export default function TestAgentsPage() {
                 className={`w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition ${submitting ? "opacity-50" : ""}`}
                 disabled={submitting}
               >
-                {submitting ? "Evaluating with AI Agents..." : "Test Agent Evaluation"}
+                {submitting ? "Evaluating Invoice..." : "Invoice Evaluation"}
               </button>
             </form>
           )}
