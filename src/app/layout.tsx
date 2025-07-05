@@ -27,9 +27,17 @@ export default function RootLayout({
               <span className="font-extrabold text-2xl tracking-tight text-black font-sans">BioVault</span>
               <div className="flex-1 flex justify-center">
                 <div className="flex gap-10">
-                  <Link href="/submit-claim" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Submit Claim</Link>
-                  <Link href="/insurance" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Insurance</Link>
-                </div>
+  <Link href="/submit-claim" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">
+    Submit Claim
+  </Link>
+  <Link href="/insurance" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">
+    Insurance
+  </Link>
+  <Link href="/submit-invoice" className="text-black font-semibold text-lg font-sans hover:text-gray-700 transition px-2 py-1 rounded hover:bg-gray-100">
+    Submit Invoice
+  </Link>
+</div>
+
               </div>
               <div className="flex items-center ml-6">
                 <LoginButton />
