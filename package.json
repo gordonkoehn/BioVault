@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "flask-dev": "FLASK_DEBUG=1 pip3 install -r requirements.txt && python3 -m flask --app api/index run -p 5328",
-    "next-dev": "next dev --turbopack",
+    "next-dev": "next dev",
     "dev": "concurrently \"npm run next-dev\" \"npm run flask-dev\"",
     "build": "next build",
     "start": "next start",
@@ -31,7 +31,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.21",
-    "babel-core": "^6.26.3",
+    "babel-core": "^4.7.16",
     "babel-loader": "^10.0.0",
     "babel-preset-es2015": "^6.1.18",
     "babel-preset-react": "^6.1.18",
