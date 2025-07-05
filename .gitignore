@@ -40,3 +40,24 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+# project specific
+todo.md
+.env.local
+.env
+agents-venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Test files
+src/agents/tests/test_pdfs/
+*.pdf
+test_asi_api.py
