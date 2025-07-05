@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import { useVerificationStore } from '../store/verificationStore';
 import { useRouter } from 'next/navigation';
 
@@ -29,6 +30,7 @@ export default function ZKProofDemo() {
   const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { user } = usePrivy();
   const markVerified = useVerificationStore((state: VerificationState) => state.markVerified);
   const isVerified = useVerificationStore((state: VerificationState) => state.isVerified);
 
@@ -100,7 +102,7 @@ export default function ZKProofDemo() {
       if (result.success) {
         setVerificationResult(result.isValid);
         setError(null);
-        if (result.isValid) {
+        if (result.isValid && user?.wallet?.address) {
           markVerified(user.wallet.address);
           router.push('/submit-claim');
         }
