@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import PrivyProvider from "@/components/PrivyProvider";
 import Link from "next/link";
 import LoginButton from "@/components/LoginButton";
+import PrivyLoginRedirect from "@/components/PrivyLoginRedirect";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -20,6 +21,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className + " bg-white text-black"}>
         <PrivyProvider>
+          <PrivyLoginRedirect />
           <nav className="w-full border-b bg-white mb-8 shadow-sm">
             <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
               <span className="font-extrabold text-2xl tracking-tight text-black font-sans">BioVault</span>
