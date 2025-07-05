@@ -10,6 +10,7 @@ import {
   type SelfApp,
 } from "@selfxyz/qrcode";
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 
 // const SelfQRcodeWrapper = dynamic(
 //   () => import("@selfxyz/qrcode").then(mod => mod.SelfQRcodeWrapper),
@@ -27,6 +28,7 @@ export default function VerifyPage() {
   const [gender, setGender] = useState('');
   const [error, setError] = useState('');
   const [qrError, setQrError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (authenticated && user) {
@@ -145,6 +147,7 @@ export default function VerifyPage() {
           onSuccess={() => {
             console.log('Verification successful');
             setQrError(null);
+            router.push('/submit-claim');
           }}
           onError={(err) => {
             console.error('Verification error:', err);

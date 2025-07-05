@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
+import { useVerificationStore } from '../store/verificationStore';
+import { useRouter } from 'next/navigation';
 
 interface ZKProof {
   pi_a: [string, string];
@@ -12,6 +15,12 @@ interface ZKPublicInputs {
   [key: string]: string;
 }
 
+interface VerificationState {
+  verifiedWallets: Set<string>;
+  markVerified: (wallet: string) => void;
+  isVerified: (wallet: string) => boolean;
+}
+
 export default function ZKProofDemo() {
   const [file, setFile] = useState<File | null>(null);
   const [proof, setProof] = useState<ZKProof | null>(null);
@@ -20,6 +29,10 @@ export default function ZKProofDemo() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const { user } = usePrivy();
+  const markVerified = useVerificationStore((state: VerificationState) => state.markVerified);
+  const isVerified = useVerificationStore((state: VerificationState) => state.isVerified);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -89,6 +102,10 @@ export default function ZKProofDemo() {
       if (result.success) {
         setVerificationResult(result.isValid);
         setError(null);
+        if (result.isValid && user?.wallet?.address) {
+          markVerified(user.wallet.address);
+          router.push('/submit-claim');
+        }
       } else {
         setError(result.error || 'Failed to verify proof');
       }
