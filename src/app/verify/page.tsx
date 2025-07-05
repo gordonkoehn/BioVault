@@ -2,8 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { SelfQRcodeWrapper, SelfAppBuilder } from '@selfxyz/qrcode';
 import { v4 as uuidv4 } from 'uuid';
+import { countries, getUniversalLink } from "@selfxyz/core";
+import {
+  SelfQRcodeWrapper,
+  SelfAppBuilder,
+  type SelfApp,
+} from "@selfxyz/qrcode";
+import dynamic from 'next/dynamic';
+
+// const SelfQRcodeWrapper = dynamic(
+//   () => import("@selfxyz/qrcode").then(mod => mod.SelfQRcodeWrapper),
+//   { ssr: false }
+// );
 
 const sanctionedCountries = ['IRN', 'PRK'];
 
@@ -15,6 +26,7 @@ export default function VerifyPage() {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [error, setError] = useState('');
+  const [qrError, setQrError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authenticated && user) {
@@ -101,40 +113,70 @@ export default function VerifyPage() {
   }
 
   // Step 2: Show QR code for ZK proof verification
-  const selfApp = new SelfAppBuilder({
-    appName: "Biovault",
-    scope: "biovault",
-    endpoint: process.env.NEXT_PUBLIC_SELF_ENDPOINT || "",
-    userIdType: 'hex',
-    userId,
-    disclosures: {
-      minimumAge: 18,
-      excludedCountries: ['IRN', 'PRK'],
-      ofac: true,
-      nationality: true,
-      name: true,
-      // dateOfBirth: true
-    },
-    userDefinedData: "test"
-  }).build();
 
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl font-bold mb-2">Scan to Verify ZK Proof</h1>
-      <p className="mb-4">Scan this QR code with the Self app to verify your identity</p>
-      <SelfQRcodeWrapper
-        selfApp={selfApp}
-        onSuccess={() => {
-          console.log('Verification successful');
-        }}
-        onError={err => {
-          console.error('Verification error:', err);
-        }}
-        size={350}
-      />
-      <p className="text-sm text-gray-500 mt-4">
-        User ID: {userId.substring(0, 8)}...
-      </p>
-    </div>
-  );
-} 
+  try {
+    const selfApp = new SelfAppBuilder({
+      version: 2,
+      appName: "BioVault",
+      scope: "biovault",
+      endpoint: '0x49C5AB3F168BBbE50630b194476c51Bd6F252db3',
+      logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png",
+      userId: userId,
+      endpointType: "staging_celo",
+      userIdType: "hex",
+      userDefinedData: "test",
+      disclosures: {
+        minimumAge: 18,
+        ofac: true,
+        excludedCountries: [countries.NORTH_KOREA, countries.IRAN],
+        nationality: true,
+        date_of_birth: true,
+        gender: true,
+      }
+    }).build();
+    console.log(selfApp);
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-2">Scan to Verify ZK Proof</h1>
+        <p className="mb-4">Scan this QR code with the Self app to verify your identity</p>
+        <SelfQRcodeWrapper
+          selfApp={selfApp}
+          onSuccess={() => {
+            console.log('Verification successful');
+            setQrError(null);
+          }}
+          onError={(err) => {
+            console.error('Verification error:', err);
+            setQrError(err.reason || err.error_code || 'Verification failed');
+          }}
+          size={350}
+        />
+        {qrError && (
+          <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            Error: {qrError}
+          </div>
+        )}
+        <p className="text-sm text-gray-500 mt-4">
+          User ID: {userId.substring(0, 8)}...
+        </p>
+      </div>
+    );
+  } catch (error) {
+    console.error('Error creating Self app:', error);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-2">Error</h1>
+        <p className="mb-4 text-red-600">
+          Failed to create verification QR code. Please try again.
+        </p>
+        <button
+          onClick={() => setStep(1)}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+}

@@ -1,5 +1,6 @@
 "use client";
 import LoginButton from "@/components/LoginButton";
+import ZKProofDemo from "@/components/ZKProofDemo";
 
 export default function Home() {
   return (
@@ -35,6 +36,11 @@ export default function Home() {
             </a>
           </div>
         </div>
+      </section>
+
+      {/* ZK Proof Demo Section */}
+      <section className="w-full py-16 bg-gray-50">
+        <ZKProofDemo />
       </section>
 
       {/* Features Section */}
