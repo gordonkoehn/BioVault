@@ -2,7 +2,9 @@ import { Tusky } from "@tusky-io/ts-sdk";
 
 
 const APIKEY = process.env.NEXT_TUSKY_API_KEY as string;
-const VAULT_NAME = "BioVault01"
+
+
+const VAULT_NAME = "BioVault01_"
 let vaultId = "" // needs to be created with createVault first
 const fileIds: string[] = [];
 
