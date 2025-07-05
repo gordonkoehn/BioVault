@@ -2,16 +2,23 @@
 
 import { useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { ZKProofSimulator, BiometricProof } from '@/lib/zk-proofs';
+import { BiometricProof, ZKProofSimulator } from '@/lib/zk-proofs';
+import { getUserVaultId } from '@/lib/vault';
 
 export default function ZKProofManager() {
   const { user, authenticated } = usePrivy();
   const [isGenerating, setIsGenerating] = useState(false);
   const [proof, setProof] = useState<BiometricProof | null>(null);
 
-  const generateAndStoreProof = async () => {
+  const generateProof = async () => {
     if (!authenticated || !user?.wallet?.address) {
       alert('Please connect your wallet first');
+      return;
+    }
+
+    const vaultId = getUserVaultId();
+    if (!vaultId) {
+      alert('No vault found. Please log in to create a vault first.');
       return;
     }
 
@@ -45,7 +52,7 @@ export default function ZKProofManager() {
     
     try {
       const isValid = await ZKProofSimulator.verifyProof(proof);
-      
+
       alert(isValid ? 'Proof verified successfully!' : 'Proof verification failed');
     } catch (error) {
       console.error('Error verifying proof:', error);
@@ -64,11 +71,11 @@ export default function ZKProofManager() {
   return (
     <div className="space-y-4">
       <button
-        onClick={generateAndStoreProof}
+        onClick={generateProof}
         disabled={isGenerating}
         className="w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition disabled:opacity-50"
       >
-        {isGenerating ? 'Generating Proof...' : 'Generate & Store ZK Proof'}
+        {isGenerating ? 'Generating Proof...' : 'Generate ZK Proof'}
       </button>
       
       {proof && (
@@ -78,6 +85,7 @@ export default function ZKProofManager() {
           </div>
           <div className="text-sm text-gray-600">
             Type: {proof.biometricType}
+
           </div>
           <button
             onClick={verifyProof}
