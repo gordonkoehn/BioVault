@@ -26,6 +26,13 @@ export default function Home() {
           <div className="flex flex-col items-center gap-4">
             <LoginButton />
             <span className="text-gray-200 text-sm">Connect your wallet to get started</span>
+            {/* Development Test Link */}
+            <a
+              href="/test-api"
+              className="text-blue-300 hover:text-blue-200 underline text-sm mt-4 px-4 py-2 bg-blue-600/20 rounded-lg backdrop-blur"
+            >
+              🧪 Test Flask API
+            </a>
           </div>
         </div>
       </section>
