@@ -17,12 +17,32 @@ export async function GET(request: NextRequest) {
     }
 
     const client = new Tusky({ apiKey: APIKEY });
-    const response = await client.file.get(fileId);
     
-    return NextResponse.json({ 
-      success: true, 
-      file: response
-    });
+    // Check if we want JSON response (for API calls) or file download
+    const download = searchParams.get('download');
+    
+    if (download === 'true') {
+      // Use arrayBuffer method to get the actual file content for download
+      const fileBuffer = await client.file.arrayBuffer(fileId);
+      
+      // Get file metadata to determine the filename
+      const fileInfo = await client.file.get(fileId);
+      const fileName = (fileInfo as any)?.name || `file-${fileId}`;
+      
+      return new NextResponse(fileBuffer, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+        },
+      });
+    } else {
+      // Return JSON for API calls
+      const response = await client.file.get(fileId);
+      return NextResponse.json({ 
+        success: true, 
+        file: response
+      });
+    }
     
   } catch (error) {
     console.error('Failed to get file:', error);
