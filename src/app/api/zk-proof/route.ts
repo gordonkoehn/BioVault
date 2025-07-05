@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error generating ZK proof:', error);
     return NextResponse.json(
-      { error: 'Failed to generate ZK proof', details: error.message },
+      { error: 'Failed to generate ZK proof', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -59,7 +59,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error verifying ZK proof:', error);
     return NextResponse.json(
-      { error: 'Failed to verify ZK proof', details: error.message },
+      { error: 'Failed to verify ZK proof', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
