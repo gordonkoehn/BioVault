@@ -24,18 +24,21 @@ export default function ZKProofManager() {
 
     setIsGenerating(true);
     try {
-      // Generate a sample ZK proof for demonstration
-      const proof = await ZKProofSimulator.generateProof({
-        biometricType: 'iris',
+      // Generate a sample ZK proof using the simulator
+      const proofRequest = {
+        biometricType: 'iris' as const,
         dataHash: `hash_${user.wallet.address}_${Date.now()}`,
         requirements: {
           minAge: 18,
+          conditions: ['identity_verified'],
           insuranceType: 'health'
         }
-      });
+      };
 
-      setProof(proof);
-      console.log('ZK Proof generated:', proof);
+      const generatedProof = await ZKProofSimulator.generateProof(proofRequest);
+      setProof(generatedProof);
+      
+      console.log('Proof generated:', generatedProof);
     } catch (error) {
       console.error('Error generating proof:', error);
       alert('Failed to generate proof');
@@ -49,6 +52,7 @@ export default function ZKProofManager() {
     
     try {
       const isValid = await ZKProofSimulator.verifyProof(proof);
+
       alert(isValid ? 'Proof verified successfully!' : 'Proof verification failed');
     } catch (error) {
       console.error('Error verifying proof:', error);
@@ -77,9 +81,11 @@ export default function ZKProofManager() {
       {proof && (
         <div className="space-y-2">
           <div className="text-sm text-gray-600">
-            <div>Proof ID: {proof.proofId}</div>
-            <div>Type: {proof.biometricType}</div>
-            <div>Status: {proof.verified ? 'Verified' : 'Pending'}</div>
+            Proof ID: {proof.proofId}
+          </div>
+          <div className="text-sm text-gray-600">
+            Type: {proof.biometricType}
+
           </div>
           <button
             onClick={verifyProof}
