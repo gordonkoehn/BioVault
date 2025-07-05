@@ -7,7 +7,7 @@ export default function LoginButton() {
 
   if (!ready) {
     return (
-      <button className="w-full py-3 rounded-lg border border-gray-300 text-lg font-semibold bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black transition mb-2">
+      <button className="px-6 py-2 rounded-lg bg-black text-white text-lg font-semibold shadow hover:bg-gray-900 transition">
         Loading...
       </button>
     );
@@ -24,7 +24,7 @@ export default function LoginButton() {
         </div>
         <button 
           onClick={logout}
-          className="w-full py-3 rounded-lg border border-gray-300 text-lg font-semibold bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black transition"
+          className="px-6 py-2 rounded-lg bg-black text-white text-lg font-semibold shadow hover:bg-gray-900 transition"
         >
           Disconnect Wallet
         </button>
@@ -35,7 +35,7 @@ export default function LoginButton() {
   return (
     <button 
       onClick={login}
-      className="w-full py-3 rounded-lg border border-gray-300 text-lg font-semibold bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black transition mb-2"
+      className="px-6 py-2 rounded-lg bg-black text-white text-lg font-semibold shadow hover:bg-gray-900 transition"
     >
       Log in with Wallet
     </button>
