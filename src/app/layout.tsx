@@ -29,6 +29,7 @@ export default function RootLayout({
                 <div className="flex gap-10">
                   <Link href="/submit-claim" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Submit Claim</Link>
                   <Link href="/insurance" className="text-gray-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Insurance</Link>
+                  <Link href="/test-agents" className="text-orange-700 font-semibold text-lg font-sans hover:text-black transition px-2 py-1 rounded hover:bg-gray-100">Test Agents</Link>
                 </div>
               </div>
               <div className="flex items-center ml-6">

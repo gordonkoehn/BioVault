@@ -17,15 +17,25 @@ import anthropic
 import openai
 import requests
 import aiohttp
+import httpx
 import PyPDF2
 import pdfplumber
 from cryptography.fernet import Fernet
 
-from .base_agent import BaseEvaluationAgent
-from .schemas import (
-    AgentVerdict, VerdictType, CoverageReason, 
-    PolicySummary, InvoiceSummary, ExecutionContext
-)
+try:
+    # Try relative imports first (when used as package)
+    from .base_agent import BaseEvaluationAgent
+    from .schemas import (
+        AgentVerdict, VerdictType, CoverageReason, 
+        PolicySummary, InvoiceSummary, ExecutionContext
+    )
+except ImportError:
+    # Fallback to absolute imports (when used as standalone)
+    from base_agent import BaseEvaluationAgent
+    from schemas import (
+        AgentVerdict, VerdictType, CoverageReason, 
+        PolicySummary, InvoiceSummary, ExecutionContext
+    )
 from pydantic import BaseModel, ValidationError
 
 
@@ -64,7 +74,9 @@ class ClaudeLLMAdapter(LLMAdapter):
     """Claude-specific LLM adapter with retry logic and optimized prompts"""
     
     def __init__(self, api_key: str, model_name: str = "claude-3-5-sonnet-20241022", max_retries: int = 3, base_delay: float = 1.0):
-        self.client = anthropic.AsyncAnthropic(api_key=api_key)
+        # Create httpx client without proxies to avoid compatibility issues
+        http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0))
+        self.client = anthropic.AsyncAnthropic(api_key=api_key, http_client=http_client)
         self._model_name = model_name
         self.max_retries = max_retries
         self.base_delay = base_delay
@@ -286,7 +298,9 @@ class GPT4LLMAdapter(LLMAdapter):
         """Initialize OpenAI client"""
         if not self._api_key:
             raise ValueError("OpenAI API key required")
-        self.client = openai.AsyncOpenAI(api_key=self._api_key)
+        # Create httpx client without proxies to avoid compatibility issues
+        http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0))
+        self.client = openai.AsyncOpenAI(api_key=self._api_key, http_client=http_client)
     
     def hot_swap_model(self, new_model: str, new_api_key: str = None):
         """Hot-swap model with logging"""

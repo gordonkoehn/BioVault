@@ -1,35 +1,28 @@
-# uAgents Framework
-uagents>=0.13.0
-
-# LLM APIs
-anthropic>=0.19.0
-openai>=1.13.0
-
-# PDF Processing
-PyPDF2>=3.0.0
-pdfplumber>=0.11.0
-
-# Security & Cryptography
-cryptography>=42.0.0
-pynacl>=1.5.0
-
-# Async Support
-aiohttp>=3.9.0
-asyncio>=3.4.3
-
-# Environment & Config
-python-dotenv>=1.0.0
-
-# Logging & Monitoring
-python-json-logger>=2.0.0
-
+Flask==3.0.3
+Flask-CORS==5.0.0
+uagents==0.22.5
+# LLM API clients
+anthropic==0.34.0
+openai==1.51.0
+# PDF processing
+PyPDF2==3.0.1
+pdfplumber==0.11.4
+# HTTP client and async
+aiohttp==3.10.11
+asyncio
+typing-extensions==4.12.2
+# Cryptography
+cryptography==43.0.3
+pynacl==1.5.0
+# Environment and configuration
+python-dotenv==1.0.1
+# Logging
+python-json-logger==2.0.7
 # Testing
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-pytest-mock>=3.12.0
-
-# Data Validation
-pydantic>=2.5.0
-
-# JSON Processing
-jsonschema>=4.21.0
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-mock==3.14.0
+# Data validation
+pydantic>=2.8,<2.9
+# JSON schema validation
+jsonschema==4.23.0

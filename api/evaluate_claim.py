@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Vercel serverless function for multi-agent claim evaluation
-Location: /src/app/api/evaluate_claim/route.py (Next.js App Router)
+Command-line script for multi-agent claim evaluation
+Called from Next.js API route
 Fixes: thread-safety, timeouts, logging, base URL handling
 """
 import os
@@ -13,14 +13,27 @@ import aiohttp
 import logging
 from typing import Dict, Any, List, Optional
 import threading
-from http.server import BaseHTTPRequestHandler
+from dotenv import load_dotenv
 
-# Add agents directory to Python path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'agents'))
+# Load environment variables from .env.local file
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(script_dir, '..')
+env_file = os.path.join(project_root, '.env.local')
+load_dotenv(env_file)
 
-# Import existing agent code
-from nlp_policy_agent import NLPPolicyAgent, ClaudeLLMAdapter, GPT4LLMAdapter, ASI1LLMAdapter
-from schemas import AgentVerdict
+# Debug: Check if environment variables are loaded (commented out for production)
+# print(f"DEBUG: ANTHROPIC_API_KEY exists: {bool(os.getenv('ANTHROPIC_API_KEY'))}")
+# print(f"DEBUG: OPENAI_API_KEY exists: {bool(os.getenv('OPENAI_API_KEY'))}")
+# print(f"DEBUG: ASI_API_KEY exists: {bool(os.getenv('ASI_API_KEY'))}")
+
+# Add project root to Python path for proper package imports
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(script_dir, '..')
+sys.path.insert(0, project_root)
+
+# Now we can import as a proper package
+from src.agents.nlp_policy_agent import NLPPolicyAgent, ClaudeLLMAdapter, GPT4LLMAdapter, ASI1LLMAdapter
+from src.agents.schemas import AgentVerdict
 
 # Configure logging for serverless environment
 logging.basicConfig(
@@ -165,7 +178,7 @@ async def download_from_tusky(file_id: str, base_url: str, temp_dir: str, filena
     Download file from Tusky API with timeout and proper error handling
     Fixes: Request timeout issues
     """
-    download_url = f"{base_url}/api/vault/file?fileId={file_id}"
+    download_url = f"{base_url}/api/vault/file?fileId={file_id}&download=true"
     logger.info(f"Downloading {filename} from {download_url}")
     
     timeout = aiohttp.ClientTimeout(total=30)  # 30 second download timeout
@@ -185,6 +198,27 @@ async def download_from_tusky(file_id: str, base_url: str, temp_dir: str, filena
                 
                 file_size = os.path.getsize(file_path)
                 logger.info(f"Downloaded {filename}: {file_size} bytes")
+                
+                # DEBUG: Check if it's actually a PDF
+                with open(file_path, 'rb') as f:
+                    first_bytes = f.read(10)
+                    logger.info(f"DEBUG: {filename} first 10 bytes: {first_bytes}")
+                    logger.info(f"DEBUG: {filename} starts with PDF header: {first_bytes.startswith(b'%PDF')}")
+                
+                # DEBUG: Try to read PDF content
+                try:
+                    import PyPDF2
+                    with open(file_path, 'rb') as f:
+                        reader = PyPDF2.PdfReader(f)
+                        num_pages = len(reader.pages)
+                        if num_pages > 0:
+                            text_sample = reader.pages[0].extract_text()[:100]
+                            logger.info(f"DEBUG: {filename} has {num_pages} pages, sample text: {text_sample}")
+                        else:
+                            logger.warning(f"DEBUG: {filename} has 0 pages")
+                except Exception as e:
+                    logger.error(f"DEBUG: Failed to read {filename} as PDF: {e}")
+                
                 return file_path
                 
     except asyncio.TimeoutError:
@@ -415,6 +449,15 @@ async def evaluate_claim_multi_agent(data: Dict[str, Any]) -> Dict[str, Any]:
             # Get cached agents
             agents = await get_cached_agents()
             
+            # DEBUG: Final check before passing to agents
+            logger.info(f"DEBUG: About to pass to agents:")
+            logger.info(f"DEBUG: Policy path: {policy_path}, exists: {os.path.exists(policy_path)}")
+            logger.info(f"DEBUG: Invoice path: {invoice_path}, exists: {os.path.exists(invoice_path)}")
+            if os.path.exists(policy_path):
+                logger.info(f"DEBUG: Policy file size: {os.path.getsize(policy_path)} bytes")
+            if os.path.exists(invoice_path):
+                logger.info(f"DEBUG: Invoice file size: {os.path.getsize(invoice_path)} bytes")
+            
             # Run evaluation on all agents with comprehensive error handling
             agent_verdicts, failed_agents = await evaluate_with_all_agents(
                 agents, policy_path, invoice_path, claim_id
@@ -551,3 +594,31 @@ def handler(request):
                 "error": f"Internal server error: {str(e)}"
             })
         }
+
+# Command-line interface for Next.js integration
+async def main():
+    """
+    Main function for command-line execution
+    Reads JSON from stdin and outputs result to stdout
+    """
+    try:
+        # Read input from stdin
+        input_data = sys.stdin.read()
+        data = json.loads(input_data)
+        
+        # Call the evaluation function
+        result = await evaluate_claim_multi_agent(data)
+        
+        # Output result as JSON to stdout
+        print(json.dumps(result, indent=2))
+        
+    except Exception as e:
+        error_result = {
+            "success": False,
+            "error": str(e)
+        }
+        print(json.dumps(error_result, indent=2))
+        sys.exit(1)
+
+if __name__ == "__main__":
+    asyncio.run(main())

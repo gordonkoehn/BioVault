@@ -16,11 +16,18 @@ from uagents import Agent, Context, Model
 from uagents.setup import fund_agent_if_low
 import base64
 
-from .schemas import (
-    AgentVerdict, VerdictType, CoverageReason, 
-    PolicySummary, InvoiceSummary, ExecutionContext,
-    AgentSignature, ClaimEvaluationRequest
-)
+try:
+    from .schemas import (
+        AgentVerdict, VerdictType, CoverageReason, 
+        PolicySummary, InvoiceSummary, ExecutionContext,
+        AgentSignature, ClaimEvaluationRequest
+    )
+except ImportError:
+    from schemas import (
+        AgentVerdict, VerdictType, CoverageReason, 
+        PolicySummary, InvoiceSummary, ExecutionContext,
+        AgentSignature, ClaimEvaluationRequest
+    )
 
 
 class BaseEvaluationAgent(ABC):
