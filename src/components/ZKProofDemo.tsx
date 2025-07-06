@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useVerificationStore } from '../store/verificationStore';
 import { useRouter } from 'next/navigation';
@@ -21,10 +21,42 @@ interface VerificationState {
   isVerified: (wallet: string) => boolean;
 }
 
+async function generateRealProof(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch('/api/zk-proof', {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  
+  return await response.json();
+}
+
+async function verifyRealProof(proof: any, publicInputs: any) {
+  const response = await fetch('/api/zk-proof', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proof, publicInputs }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  
+  const result = await response.json();
+  return result.isValid;
+}
+
 export default function ZKProofDemo() {
   const [file, setFile] = useState<File | null>(null);
   const [proof, setProof] = useState<ZKProof | null>(null);
   const [publicInputs, setPublicInputs] = useState<ZKPublicInputs | null>(null);
+  const [parsedJson, setParsedJson] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
@@ -41,6 +73,7 @@ export default function ZKProofDemo() {
       setError(null);
       setProof(null);
       setPublicInputs(null);
+      setParsedJson(null);
       setVerificationResult(null);
     }
   };
@@ -55,19 +88,12 @@ export default function ZKProofDemo() {
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/zk-proof', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
+      const result = await generateRealProof(file);
+      
       if (result.success) {
         setProof(result.proof);
         setPublicInputs(result.publicInputs);
+        setParsedJson(result.parsed);
         setError(null);
       } else {
         setError(result.error || 'Failed to generate proof');
@@ -89,25 +115,13 @@ export default function ZKProofDemo() {
     setError(null);
 
     try {
-      const response = await fetch('/api/zk-proof', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ proof, publicInputs }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setVerificationResult(result.isValid);
-        setError(null);
-        if (result.isValid && user?.wallet?.address) {
-          markVerified(user.wallet.address);
-          router.push('/submit-claim');
-        }
-      } else {
-        setError(result.error || 'Failed to verify proof');
+      const result = await verifyRealProof(proof, publicInputs);
+      
+      setVerificationResult(result);
+      setError(null);
+      if (result && user?.wallet?.address) {
+        markVerified(user.wallet.address);
+        router.push('/submit-invoice');
       }
     } catch (err) {
       setError('Error verifying proof: ' + (err instanceof Error ? err.message : 'Unknown error'));
@@ -125,10 +139,11 @@ export default function ZKProofDemo() {
           {/* File Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload Biometric File
+              Upload Biometric File (PDF recommended)
             </label>
             <input
               type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.wav,.mp3"
               onChange={handleFileChange}
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
@@ -152,6 +167,14 @@ export default function ZKProofDemo() {
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}
+            </div>
+          )}
+
+          {/* Parsed JSON Display */}
+          {parsedJson && (
+            <div className="bg-white rounded-lg shadow p-4 border border-blue-100 transition-all">
+              <h2 className="font-semibold mb-2 text-blue-800">Parsed PDF Data (JSON)</h2>
+              <pre className="bg-blue-50 rounded p-2 text-xs overflow-x-auto max-h-40 whitespace-pre-wrap">{JSON.stringify(parsedJson, null, 2)}</pre>
             </div>
           )}
 
@@ -211,8 +234,9 @@ export default function ZKProofDemo() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 className="font-semibold text-blue-800 mb-2">How it works:</h3>
         <ol className="text-blue-700 text-sm space-y-1 list-decimal list-inside">
-          <li>Upload any file (simulating biometric data)</li>
-          <li>The file is hashed and converted to circuit input format</li>
+          <li>Upload a PDF health report or any biometric file</li>
+          <li>For PDFs, the system extracts structured health data as JSON</li>
+          <li>The data is hashed and converted to circuit input format</li>
           <li>A ZK proof is generated using your compiled Circom circuit</li>
           <li>The proof can be verified without revealing the original data</li>
           <li>This demonstrates privacy-preserving biometric verification</li>

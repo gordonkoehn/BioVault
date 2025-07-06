@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
+import path from 'path';
 import crypto from 'crypto';
 import * as circomlib from 'circomlibjs';
 
@@ -24,11 +25,12 @@ export class ZKProofGenerator {
   private zkeyPath: string;
   private verificationKeyPath: string;
 
-  constructor(circuitPath: string = '../biovault-circuits') {
-    this.circuitPath = circuitPath;
-    this.wasmPath = `${circuitPath}/biometric_hash_js/biometric_hash.wasm`;
-    this.zkeyPath = `${circuitPath}/biometric_hash_0001.zkey`;
-    this.verificationKeyPath = `${circuitPath}/verification_key.json`;
+  constructor(circuitPath?: string) {
+    // Use absolute path to biovault-circuits directory
+    this.circuitPath = circuitPath || path.join(process.cwd(), 'biovault-circuits');
+    this.wasmPath = path.join(this.circuitPath, 'biometric_hash_js', 'biometric_hash.wasm');
+    this.zkeyPath = path.join(this.circuitPath, 'biometric_hash_0001.zkey');
+    this.verificationKeyPath = path.join(this.circuitPath, 'verification_key.json');
   }
 
   /**
@@ -77,25 +79,37 @@ export class ZKProofGenerator {
     try {
       // Generate input
       const input = await this.generateInput(biometricData);
-      const inputPath = `${this.circuitPath}/temp_input.json`;
-      const witnessPath = `${this.circuitPath}/temp_witness.wtns`;
-      const proofPath = `${this.circuitPath}/temp_proof.json`;
-      const publicPath = `${this.circuitPath}/temp_public.json`;
+      
+      // Use absolute paths for all temporary files
+      const inputPath = path.join(this.circuitPath, 'temp_input.json');
+      const witnessPath = path.join(this.circuitPath, 'temp_witness.wtns');
+      const proofPath = path.join(this.circuitPath, 'temp_proof.json');
+      const publicPath = path.join(this.circuitPath, 'temp_public.json');
 
       // Save input to file
       fs.writeFileSync(inputPath, JSON.stringify(input, null, 2));
 
       // Generate witness
-      execSync(
-        `node ${this.circuitPath}/biometric_hash_js/generate_witness.js ${this.wasmPath} ${inputPath} ${witnessPath}`,
-        { stdio: 'pipe' }
-      );
+      try {
+        execSync(
+          `node ${path.join(this.circuitPath, 'biometric_hash_js', 'generate_witness.js')} ${this.wasmPath} ${inputPath} ${witnessPath}`,
+          { stdio: 'pipe' }
+        );
+      } catch (error) {
+        console.error('Error generating witness:', error);
+        throw new Error(`Failed to generate witness: ${error}`);
+      }
 
       // Generate proof
-      execSync(
-        `snarkjs groth16 prove ${this.zkeyPath} ${witnessPath} ${proofPath} ${publicPath}`,
-        { stdio: 'pipe' }
-      );
+      try {
+        execSync(
+          `snarkjs groth16 prove ${this.zkeyPath} ${witnessPath} ${proofPath} ${publicPath}`,
+          { stdio: 'pipe' }
+        );
+      } catch (error) {
+        console.error('Error generating proof:', error);
+        throw new Error(`Failed to generate proof: ${error}`);
+      }
 
       // Read generated files
       const proof = JSON.parse(fs.readFileSync(proofPath, 'utf8'));
@@ -120,8 +134,8 @@ export class ZKProofGenerator {
    */
   async verifyProof(proof: ZKProof, publicInputs: ZKPublicInputs): Promise<boolean> {
     try {
-      const proofPath = `${this.circuitPath}/temp_verify_proof.json`;
-      const publicPath = `${this.circuitPath}/temp_verify_public.json`;
+      const proofPath = path.join(this.circuitPath, 'temp_verify_proof.json');
+      const publicPath = path.join(this.circuitPath, 'temp_verify_public.json');
 
       // Save proof and public inputs to files
       fs.writeFileSync(proofPath, JSON.stringify(proof, null, 2));

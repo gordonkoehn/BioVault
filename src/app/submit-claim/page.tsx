@@ -5,6 +5,7 @@ import { uploadFileObject } from "@/lib/tusky";
 
 const biometricTypes = [
   { value: "iris", label: "IRIS SCAN" },
+  { value: "healthreport", label: "Health Report (General)" },
   { value: "heartbeat", label: "HEARTBEAT MONITOR" },
   { value: "fingerprint", label: "FINGERPRINT SCAN" },
   { value: "face", label: "FACIAL RECOGNITION" },
@@ -110,7 +111,7 @@ export default function SubmitClaimPage() {
       <div className="w-full max-w-md">
         <div className="rounded-2xl shadow-lg border bg-white px-8 py-10">
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-extrabold mb-2 tracking-tight text-gray-900">Submit Biometric Claim</h1>
+            <h1 className="text-3xl font-extrabold mb-2 tracking-tight text-gray-900">Submit Health Reports</h1>
             <div className="w-20 h-1 bg-gray-200 mx-auto mb-2"></div>
             <p className="text-gray-600 text-base">Upload your biometric data and submit a claim for insurance eligibility.</p>
           </div>
@@ -180,27 +181,7 @@ export default function SubmitClaimPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block mb-2 font-semibold text-gray-900">Minimum Age Requirement</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={minAge}
-                  onChange={e => setMinAge(Number(e.target.value))}
-                  className="w-full bg-white border border-gray-300 rounded px-4 py-3 text-gray-900 focus:border-black focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 font-semibold text-gray-900">Insurance Type</label>
-                <input
-                  type="text"
-                  value={insuranceType}
-                  onChange={e => setInsuranceType(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded px-4 py-3 text-gray-900 focus:border-black focus:outline-none transition-colors"
-                  placeholder="e.g. Health, Life, Travel"
-                />
-              </div>
+      
 
               {error && (
                 <div className="p-4 bg-red-100 border border-red-400 rounded text-red-700 text-center">

@@ -271,13 +271,13 @@ export default function InsuranceDashboard() {
                         </div>
                       </div>
                     </div>
-                    <button
+                    {/* <button
                       className={`w-full py-3 rounded-lg bg-black text-white font-semibold text-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black transition mb-2 ${loading ? "opacity-50" : ""}`}
                       onClick={() => checkEligibility(selectedClaim)}
                       disabled={loading}
-                    >
-                      {loading ? "Analyzing..." : "Verify Eligibility"}
-                    </button>
+                    > */}
+                      {/* {loading ? "Analyzing..." : "Verify Eligibility"}
+                    </button> */}
                     {eligibility !== null && (
                       <div className={`mt-4 p-4 rounded-lg border text-center font-bold text-lg ${
                         eligibility 

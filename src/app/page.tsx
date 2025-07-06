@@ -1,6 +1,7 @@
 "use client";
 import LoginButton from "@/components/LoginButton";
 import ZKProofDemo from "@/components/ZKProofDemo";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -26,14 +27,28 @@ export default function Home() {
           </p>
           <div className="flex flex-col items-center gap-4">
             <LoginButton />
-            <span className="text-gray-200 text-sm">Connect your wallet to get started</span>
-            {/* Development Test Link */}
-            <a
-              href="/test-api"
-              className="text-blue-300 hover:text-blue-200 underline text-sm mt-4 px-4 py-2 bg-blue-600/20 rounded-lg backdrop-blur"
+            
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-6">
+            <Link
+              href="/verify"
+              className="inline-block px-10 py-4 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-xl shadow-xl hover:from-blue-600 hover:to-blue-800 transition text-xl"
             >
-              🧪 Test Flask API
-            </a>
+              <div className="flex flex-col items-center">
+                <span className="font-bold text-lg md:text-xl">Verify with Credentials</span>
+                <span className="flex items-center gap-2 text-xs md:text-sm font-normal mt-1 text-blue-100">
+                  <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="inline-block"><circle cx="16" cy="16" r="16" fill="#0A3266"/><path d="M10.5 16.5L15 21L21.5 13.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  powered by Self.xyz
+                </span>
+              </div>
+            </Link>
+            {/* <Link
+              href="/manual-form"
+              className="inline-block px-10 py-4 bg-white text-blue-700 font-bold rounded-lg shadow-lg hover:bg-gray-50 transition text-xl border-2 border-white"
+            >
+              Manual Form
+            </Link> */}
           </div>
         </div>
       </section>
