@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BiometricEncryption } from "@/lib/encryption";
 import { uploadFileObject } from "@/lib/tusky";
+import { useRouter } from "next/navigation";
 
 const biometricTypes = [
   { value: "iris", label: "IRIS SCAN" },
@@ -28,6 +29,7 @@ export default function SubmitClaimPage() {
   const [zkProof, setZkProof] = useState<ZKProof | null>(null);
   const [zkProofError, setZkProofError] = useState<string | null>(null);
   const [zkProofVerified, setZkProofVerified] = useState<boolean | null>(null);
+  const router = useRouter();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -78,6 +80,12 @@ export default function SubmitClaimPage() {
             });
             const verifyJson = await verifyRes.json();
             setZkProofVerified(verifyJson.isValid);
+            if (result) {
+              setShowModal(true);
+              if (user?.wallet?.address) {
+                localStorage.setItem(`biovault_zk_verified_${user.wallet.address}`, 'true');
+              }
+            }
           } else {
             setZkProofError(result.error || 'Failed to generate ZK proof');
           }
@@ -110,6 +118,17 @@ export default function SubmitClaimPage() {
       setSubmitting(false);
     }
   };
+
+  // useEffect(() => {
+  //   if (authenticated && user?.wallet?.address) {
+  //     const key = `biovault_zk_verified_${user.wallet.address}`;
+  //     if (!localStorage.getItem(key)) {
+  //       // Show pre-verification screen
+  //       router.push('/verify');
+  //     }
+  //     // else: allow access to dashboard
+  //   }
+  // }, [authenticated, user, router]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8">
@@ -184,28 +203,6 @@ export default function SubmitClaimPage() {
                     </div>
                   </label>
                 </div>
-              </div>
-
-              <div>
-                <label className="block mb-2 font-semibold text-gray-900">Minimum Age Requirement</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={minAge}
-                  onChange={e => setMinAge(Number(e.target.value))}
-                  className="w-full bg-white border border-gray-300 rounded px-4 py-3 text-gray-900 focus:border-black focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 font-semibold text-gray-900">Insurance Type</label>
-                <input
-                  type="text"
-                  value={insuranceType}
-                  onChange={e => setInsuranceType(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded px-4 py-3 text-gray-900 focus:border-black focus:outline-none transition-colors"
-                  placeholder="e.g. Health, Life, Travel"
-                />
               </div>
 
               {error && (

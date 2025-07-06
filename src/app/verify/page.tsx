@@ -42,79 +42,94 @@ export default function VerifyPage() {
   }, [authenticated, user]);
 
   if (!ready) return <div>Loading...</div>;
-  if (!authenticated) return <div>Please log in with your wallet to verify your identity.</div>;
+  if (!authenticated) return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-white">
+      <div className="bg-white rounded-2xl shadow-xl p-10 border border-blue-100 flex flex-col items-center animate-fade-in">
+        <h1 className="text-2xl font-bold mb-4 text-blue-900">Wallet Required</h1>
+        <p className="text-gray-600 mb-6 text-center">Please log in with your wallet to verify your identity.</p>
+        <p className="text-sm text-gray-500 text-center">This verification process requires a connected wallet for security purposes.</p>
+      </div>
+    </div>
+  );
   if (!userId) return null;
 
   // Step 1: Questions
   if (step === 1) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-2">Pre-Verification</h1>
-        <p className="mb-4">Please provide the following information:</p>
-        <form
-          className="space-y-4 w-full max-w-xs"
-          onSubmit={e => {
-            e.preventDefault();
-            setError('');
-            if (sanctionedCountries.includes(country.toUpperCase())) {
-              setError('Sorry, users from sanctioned countries are not allowed.');
-              return;
-            }
-            if (!age || isNaN(Number(age)) || Number(age) < 18) {
-              setError('You must be at least 18 years old.');
-              return;
-            }
-            if (!gender) {
-              setError('Please select your gender.');
-              return;
-            }
-            setStep(2);
-          }}
-        >
-          <div>
-            <label className="block mb-1 font-semibold">Country (ISO 3-letter code)</label>
-            <input
-              className="w-full border rounded px-3 py-2"
-              value={country}
-              onChange={e => setCountry(e.target.value)}
-              placeholder="e.g. USA, SGP"
-              required
-            />
-          </div>
-          <div>
-            <label className="block mb-1 font-semibold">Age</label>
-            <input
-              className="w-full border rounded px-3 py-2"
-              type="number"
-              value={age}
-              onChange={e => setAge(e.target.value)}
-              min={0}
-              required
-            />
-          </div>
-          <div>
-            <label className="block mb-1 font-semibold">Gender</label>
-            <select
-              className="w-full border rounded px-3 py-2"
-              value={gender}
-              onChange={e => setGender(e.target.value)}
-              required
-            >
-              <option value="">Select...</option>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
-              <option value="other">Other</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
-            </select>
-          </div>
-          {error && <div className="text-red-600">{error}</div>}
-          <button
-            type="submit"
-            className="w-full py-2 rounded bg-black text-white font-semibold mt-2"
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-white">
+        <div className="bg-white rounded-2xl shadow-xl p-10 border border-blue-100 flex flex-col items-center animate-fade-in">
+          <h1 className="text-3xl font-bold mb-2 text-blue-900">Passport Verification</h1>
+          <p className="text-gray-600 mb-8 text-center">Please provide the following information before ZK proof verification:</p>
+          <form
+            className="space-y-6 w-full max-w-sm"
+            onSubmit={e => {
+              e.preventDefault();
+              setError('');
+              if (sanctionedCountries.includes(country.toUpperCase())) {
+                setError('Sorry, users from sanctioned countries are not allowed.');
+                return;
+              }
+              if (!age || isNaN(Number(age)) || Number(age) < 18) {
+                setError('You must be at least 18 years old.');
+                return;
+              }
+              if (!gender) {
+                setError('Please select your gender.');
+                return;
+              }
+              setStep(2);
+            }}
           >
-            Continue to ZK Proof Verification
-          </button>
-        </form>
+            <div>
+              <label className="block mb-2 font-semibold text-blue-900">Country (ISO 3-letter code)</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={country}
+                onChange={e => setCountry(e.target.value)}
+                placeholder="e.g. USA, SGP"
+                required
+              />
+            </div>
+            <div>
+              <label className="block mb-2 font-semibold text-blue-900">Age</label>
+              <input
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                type="number"
+                value={age}
+                onChange={e => setAge(e.target.value)}
+                min="18"
+                max="120"
+                required
+              />
+            </div>
+            <div>
+              <label className="block mb-2 font-semibold text-blue-900">Gender</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={gender}
+                onChange={e => setGender(e.target.value)}
+                required
+              >
+                <option value="">Select gender...</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
+              </select>
+            </div>
+            {error && (
+              <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              className="w-full py-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold hover:from-blue-600 hover:to-blue-800 transition shadow-lg"
+            >
+              Continue to ZK Proof Verification
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -123,13 +138,15 @@ export default function VerifyPage() {
   if (showSuccess) {
     // Animated checkmark and success message
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <svg className="w-24 h-24 text-green-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12l3 3 5-5" />
-        </svg>
-        <h2 className="text-2xl font-bold mt-6 mb-2 text-green-600">Verification Successful!</h2>
-        <p className="text-lg text-gray-700 mb-4">Redirecting to submit claim...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-white">
+        <div className="bg-white rounded-2xl shadow-xl p-10 border border-blue-100 flex flex-col items-center animate-fade-in">
+          <svg className="w-24 h-24 text-green-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12l3 3 5-5" />
+          </svg>
+          <h2 className="text-2xl font-bold mt-6 mb-2 text-green-600">Verification Successful!</h2>
+          <p className="text-lg text-gray-700 mb-4">Redirecting to submit claim...</p>
+        </div>
       </div>
     );
   }
@@ -157,49 +174,53 @@ export default function VerifyPage() {
     console.log(selfApp);
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-2">Scan to Verify ZK Proof</h1>
-        <p className="mb-4">Scan this QR code with the Self app to verify your identity</p>
-        <SelfQRcodeWrapper
-          selfApp={selfApp}
-          onSuccess={() => {
-            console.log('Verification successful');
-            setQrError(null);
-            setShowSuccess(true);
-            timeoutRef.current = setTimeout(() => {
-              router.push('/submit-claim');
-            }, 1800);
-          }}
-          onError={(err) => {
-            console.error('Verification error:', err);
-            setQrError(err.reason || err.error_code || 'Verification failed');
-          }}
-          size={350}
-        />
-        {qrError && (
-          <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            Error: {qrError}
-          </div>
-        )}
-        <p className="text-sm text-gray-500 mt-4">
-          User ID: {userId.substring(0, 8)}...
-        </p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-white">
+        <div className="bg-white rounded-2xl shadow-xl p-10 border border-blue-100 flex flex-col items-center animate-fade-in">
+          <h1 className="text-2xl font-bold mb-2 text-blue-900">Scan to Verify ZK Proof</h1>
+          <p className="mb-6 text-gray-600 text-center">Scan this QR code with the Self app to verify your identity</p>
+          <SelfQRcodeWrapper
+            selfApp={selfApp}
+            onSuccess={() => {
+              console.log('Verification successful');
+              setQrError(null);
+              setShowSuccess(true);
+              timeoutRef.current = setTimeout(() => {
+                router.push('/submit-claim');
+              }, 1800);
+            }}
+            onError={(err) => {
+              console.error('Verification error:', err);
+              setQrError(err.reason || err.error_code || 'Verification failed');
+            }}
+            size={350}
+          />
+          {qrError && (
+            <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+              Error: {qrError}
+            </div>
+          )}
+          <p className="text-sm text-gray-500 mt-4">
+            User ID: {userId.substring(0, 8)}...
+          </p>
+        </div>
       </div>
     );
   } catch (error) {
     console.error('Error creating Self app:', error);
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-2">Error</h1>
-        <p className="mb-4 text-red-600">
-          Failed to create verification QR code. Please try again.
-        </p>
-        <button
-          onClick={() => setStep(1)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Go Back
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-white">
+        <div className="bg-white rounded-2xl shadow-xl p-10 border border-blue-100 flex flex-col items-center animate-fade-in">
+          <h1 className="text-2xl font-bold mb-2 text-red-600">Error</h1>
+          <p className="mb-4 text-red-600">
+            Failed to create verification QR code. Please try again.
+          </p>
+          <button
+            onClick={() => setStep(1)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }

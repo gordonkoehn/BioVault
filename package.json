@@ -17,6 +17,7 @@
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
     "crypto-js": "^4.2.0",
+    "fs": "^0.0.1-security",
     "next": "^14.2.3",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^5.3.31",
