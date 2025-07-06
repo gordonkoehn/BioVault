@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Tusky } from '@tusky-io/ts-sdk';
+import { BiometricEncryption } from '@/lib/encryption';
 
 const APIKEY = process.env.TUSKY_API_KEY as string;
 
@@ -29,6 +30,38 @@ export async function GET(request: NextRequest) {
       const fileInfo = await client.file.get(fileId);
       const fileName = (fileInfo as any)?.name || `file-${fileId}`;
       
+      // Check if this is an encrypted file and decrypt it
+      if (fileName.startsWith('encrypted_') && fileName.endsWith('.json')) {
+        try {
+          // Parse the encrypted JSON data
+          const encryptedJson = new TextDecoder().decode(fileBuffer);
+          const encryptedData = JSON.parse(encryptedJson);
+          
+          // Decrypt the data
+          const decryptedData = BiometricEncryption.decrypt(encryptedData);
+          
+          // Extract original filename (remove 'encrypted_' prefix and '.json' extension)
+          const originalFileName = fileName.replace(/^encrypted_/, '').replace(/\.json$/, '');
+          
+          // Convert decrypted data back to buffer (assuming it was base64 encoded)
+          const decryptedBuffer = Buffer.from(decryptedData.split(',')[1], 'base64');
+          
+          return new NextResponse(decryptedBuffer, {
+            headers: {
+              'Content-Type': 'application/octet-stream',
+              'Content-Disposition': `attachment; filename="${originalFileName}"`,
+            },
+          });
+        } catch (decryptionError) {
+          console.error('Failed to decrypt file:', decryptionError);
+          return NextResponse.json({ 
+            error: 'Could not decrypt file',
+            details: 'File decryption failed'
+          }, { status: 500 });
+        }
+      }
+      
+      // For non-encrypted files, return as-is
       return new NextResponse(fileBuffer, {
         headers: {
           'Content-Type': 'application/octet-stream',

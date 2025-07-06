@@ -45,54 +45,66 @@ export default function SubmitClaimPage() {
     setZkProofVerified(null);
     try {
       if (!file) throw new Error("Please upload a biometric file.");
-      // Upload file to Tusky vault first
-      const fileId = await uploadFileObject(file);
-      console.log(`File uploaded to Tusky with ID: ${fileId}`);
-      // Encrypt file (simulate)
+      
+      // First, read and encrypt the file
       const reader = new FileReader();
       reader.onload = async (ev) => {
-        const fileData = ev.target?.result as string;
-        const encrypted = BiometricEncryption.encrypt(fileData);
-        // --- ZK Proof Generation ---
         try {
-          const formData = new FormData();
-          formData.append('file', file);
-          const response = await fetch('/api/zk-proof', {
-            method: 'POST',
-            body: formData,
-          });
-          const result = await response.json();
-          if (result.success) {
-            setZkProof(result.proof);
-            // Optionally verify proof immediately
-            const verifyRes = await fetch('/api/zk-proof', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ proof: result.proof, publicInputs: result.publicInputs }),
+          const fileData = ev.target?.result as string;
+          const encrypted = BiometricEncryption.encrypt(fileData);
+          
+          // Create a new File object with encrypted data for upload to Tusky
+          const encryptedBlob = new Blob([JSON.stringify(encrypted)], { type: 'application/json' });
+          const encryptedFile = new File([encryptedBlob], `encrypted_${file.name}.json`, { type: 'application/json' });
+          
+          // Upload encrypted file to Tusky vault
+          const fileId = await uploadFileObject(encryptedFile);
+          console.log(`Encrypted file uploaded to Tusky with ID: ${fileId}`);
+          
+          // --- ZK Proof Generation ---
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch('/api/zk-proof', {
+              method: 'POST',
+              body: formData,
             });
-            const verifyJson = await verifyRes.json();
-            setZkProofVerified(verifyJson.isValid);
-          } else {
-            setZkProofError(result.error || 'Failed to generate ZK proof');
+            const result = await response.json();
+            if (result.success) {
+              setZkProof(result.proof);
+              // Optionally verify proof immediately
+              const verifyRes = await fetch('/api/zk-proof', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proof: result.proof, publicInputs: result.publicInputs }),
+              });
+              const verifyJson = await verifyRes.json();
+              setZkProofVerified(verifyJson.isValid);
+            } else {
+              setZkProofError(result.error || 'Failed to generate ZK proof');
+            }
+          } catch (zkErr: any) {
+            setZkProofError(zkErr.message || 'Error generating ZK proof');
           }
-        } catch (zkErr: any) {
-          setZkProofError(zkErr.message || 'Error generating ZK proof');
+          // Save claim to localStorage
+          const claim = {
+            id: `claim_${Date.now()}`,
+            biometricType,
+            submittedAt: Date.now(),
+            requirements: { minAge, insuranceType },
+            encrypted,
+            tuskyFileId: fileId, // Store the Tusky file ID
+          };
+          const prev = localStorage.getItem("claims");
+          const claims = prev ? JSON.parse(prev) : [];
+          claims.push(claim);
+          localStorage.setItem("claims", JSON.stringify(claims));
+          setSuccess(true);
+          setSubmitting(false);
+        } catch (uploadErr: unknown) {
+          setError(uploadErr instanceof Error ? uploadErr.message : "Failed to encrypt and upload file.");
+          setSubmitting(false);
         }
-        // Save claim to localStorage
-        const claim = {
-          id: `claim_${Date.now()}`,
-          biometricType,
-          submittedAt: Date.now(),
-          requirements: { minAge, insuranceType },
-          encrypted,
-          tuskyFileId: fileId, // Store the Tusky file ID
-        };
-        const prev = localStorage.getItem("claims");
-        const claims = prev ? JSON.parse(prev) : [];
-        claims.push(claim);
-        localStorage.setItem("claims", JSON.stringify(claims));
-        setSuccess(true);
-        setSubmitting(false);
       };
       reader.onerror = () => {
         setError("Failed to read file.");
@@ -100,7 +112,7 @@ export default function SubmitClaimPage() {
       };
       reader.readAsDataURL(file);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Submission failed.");
+      setError(err instanceof Error ? err.message : "File processing failed.");
       setSubmitting(false);
     }
   };
