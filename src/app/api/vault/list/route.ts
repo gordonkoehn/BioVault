@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       success: true,
       items: response.items.map((file: any) => ({
         id: file.id,
-        name: file.name,
+        name: file.name.replace(/_encrypted$/, ''),
         size: file.size
       }))
     });
