@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Tusky } from '@tusky-io/ts-sdk';
+import { BiometricEncryption, EncryptedData } from '@/lib/encryption';
 
 const APIKEY = process.env.TUSKY_API_KEY as string;
 
@@ -27,20 +28,49 @@ export async function GET(request: NextRequest) {
       
       // Get file metadata to determine the filename
       const fileInfo = await client.file.get(fileId);
-      const fileName = (fileInfo as any)?.name || `file-${fileId}`;
+      let fileName = (fileInfo as any)?.name || `file-${fileId}`;
       
-      return new NextResponse(fileBuffer, {
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${fileName}"`,
-        },
-      });
+      try {
+        // Try to decrypt the file (it should be encrypted JSON)
+        const encryptedContent = Buffer.from(fileBuffer).toString('utf8');
+        const encryptedData: EncryptedData = JSON.parse(encryptedContent);
+        
+        // Decrypt the content
+        const decryptedContent = BiometricEncryption.decrypt(encryptedData);
+        const decryptedBuffer = Buffer.from(decryptedContent, 'base64');
+        
+        // Remove _encrypted suffix from filename if present
+        fileName = fileName.replace(/_encrypted$/, '');
+        
+        return new NextResponse(decryptedBuffer, {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${fileName}"`,
+          },
+        });
+      } catch (decryptionError) {
+        // If decryption fails, return the original file (backward compatibility)
+        console.warn('Failed to decrypt file, returning original:', decryptionError);
+        return new NextResponse(fileBuffer, {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${fileName}"`,
+          },
+        });
+      }
     } else {
       // Return JSON for API calls
       const response = await client.file.get(fileId);
+      
+      // Clean up filename for display
+      const cleanedResponse = {
+        ...response,
+        name: (response as any)?.name?.replace(/_encrypted$/, '') || (response as any)?.name
+      };
+      
       return NextResponse.json({ 
         success: true, 
-        file: response
+        file: cleanedResponse
       });
     }
     

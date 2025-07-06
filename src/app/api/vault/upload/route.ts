@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Tusky } from '@tusky-io/ts-sdk';
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, unlink, readFile } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { BiometricEncryption } from '@/lib/encryption';
 
 const APIKEY = process.env.TUSKY_API_KEY as string;
 
@@ -27,9 +28,19 @@ export async function POST(request: NextRequest) {
       // Save file temporarily
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const tempFilePath = join(tmpdir(), `upload_${Date.now()}_${file.name}`);
       
-      await writeFile(tempFilePath, buffer);
+      // Encrypt the file content
+      const fileContent = buffer.toString('base64');
+      const encryptedData = BiometricEncryption.encrypt(fileContent);
+      
+      // Store encrypted data as JSON
+      const encryptedFileContent = JSON.stringify(encryptedData);
+      
+      // Create encrypted filename (add _encrypted suffix for storage, but keep original for user)
+      const encryptedFileName = `${file.name}_encrypted`;
+      const tempFilePath = join(tmpdir(), `upload_${Date.now()}_${encryptedFileName}`);
+      
+      await writeFile(tempFilePath, encryptedFileContent, 'utf8');
       
       try {
         const client = new Tusky({ apiKey: APIKEY });
@@ -60,13 +71,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Tusky API key not configured' }, { status: 500 });
       }
 
-      const client = new Tusky({ apiKey: APIKEY });
-      const fileId = await client.file.upload(vaultId, filePath);
+      // Read and encrypt the file
+      const fileBuffer = await readFile(filePath);
+      const fileContent = fileBuffer.toString('base64');
+      const encryptedData = BiometricEncryption.encrypt(fileContent);
       
-      return NextResponse.json({ 
-        success: true, 
-        fileId: fileId
-      });
+      // Create temporary encrypted file
+      const encryptedFileContent = JSON.stringify(encryptedData);
+      const originalFileName = filePath.split('/').pop() || 'unknown';
+      const encryptedFileName = `${originalFileName}_encrypted`;
+      const tempFilePath = join(tmpdir(), `upload_${Date.now()}_${encryptedFileName}`);
+      
+      await writeFile(tempFilePath, encryptedFileContent, 'utf8');
+      
+      try {
+        const client = new Tusky({ apiKey: APIKEY });
+        const fileId = await client.file.upload(vaultId, tempFilePath);
+        
+        // Clean up temporary file
+        await unlink(tempFilePath);
+        
+        return NextResponse.json({ 
+          success: true, 
+          fileId: fileId
+        });
+      } catch (uploadError) {
+        // Clean up temporary file on error
+        await unlink(tempFilePath);
+        throw uploadError;
+      }
     }
     
   } catch (error) {
